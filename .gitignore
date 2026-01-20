@@ -1,0 +1,57 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+build
+.next
+out
+*.tsbuildinfo
+
+# Turbo
+.turbo
+
+# Bun
+bun.lockb
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage
+.nyc_output
+
+# Anchor / Solana
+packages/contracts/target
+packages/contracts/.anchor
+packages/contracts/test-ledger
+**/*.so
+
+# Database
+*.db
+*.sqlite
+
+# Misc
+.cache
+*.pid
+*.seed
