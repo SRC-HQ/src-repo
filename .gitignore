@@ -47,6 +47,10 @@ packages/contracts/.anchor
 packages/contracts/test-ledger
 **/*.so
 
+# Keypairs (NEVER commit these!)
+packages/contracts/keys/*.json
+packages/contracts/keys/env.local
+
 # Database
 *.db
 *.sqlite

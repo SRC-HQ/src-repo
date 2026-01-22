@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("SpermRace111111111111111111111111111111111");
+declare_id!("EPLZGLkPntoQswDdtDdgZ3kK1jrQBJC66dgadtyeDEry");
 
 #[program]
 pub mod sperm_race {

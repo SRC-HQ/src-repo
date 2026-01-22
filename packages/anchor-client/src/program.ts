@@ -11,7 +11,7 @@ import { IDL, SpermRace } from './idl';
 import { ProgramAddresses, DepositBetParams, GameStateAccount, BetRecordAccount } from './types';
 
 // Default program ID - update after deployment
-const DEFAULT_PROGRAM_ID = new PublicKey('SpermRace111111111111111111111111111111111');
+const DEFAULT_PROGRAM_ID = new PublicKey('EPLZGLkPntoQswDdtDdgZ3kK1jrQBJC66dgadtyeDEry');
 
 /**
  * Client for interacting with the Sperm Race Solana program
