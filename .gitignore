@@ -1,3 +1,6 @@
+test-ledger 
+.cursorignore
+
 # Dependencies
 node_modules
 .pnp

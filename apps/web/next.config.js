@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@sperm-race/shared', '@sperm-race/anchor-client'],
+  transpilePackages: [],
   webpack: (config) => {
     // Required for Solana wallet adapter
     config.resolve.fallback = {

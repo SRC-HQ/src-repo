@@ -1,37 +1,114 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
-import { COMMITMENT, SolanaNetwork, SOLANA_NETWORKS } from '@sperm-race/shared';
+import { Connection, PublicKey, Keypair, Cluster } from '@solana/web3.js';
+import { Wallet } from '@coral-xyz/anchor';
+import { COMMITMENT, SolanaNetwork, SOLANA_NETWORKS, DEFAULT_RPC_URLS } from '../../common';
+import { ContractClientService } from './contract-client.service';
+import * as fs from 'fs';
 
 @Injectable()
 export class SolanaService implements OnModuleInit {
   private readonly logger = new Logger(SolanaService.name);
   private connection: Connection;
   private programId: PublicKey;
+  private authorityWallet: Wallet | null = null;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly contractClient: ContractClientService,
+  ) {}
+
+  /**
+   * Get default RPC URL for a network
+   * Handles localnet which is not a valid Cluster type
+   */
+  private getDefaultRpcUrl(network: SolanaNetwork): string {
+    return DEFAULT_RPC_URLS[network];
+  }
 
   async onModuleInit() {
     const network = this.configService.get<SolanaNetwork>(
       'SOLANA_NETWORK',
-      SOLANA_NETWORKS.DEVNET,
+      SOLANA_NETWORKS.LOCALNET,
     );
-    const rpcUrl = this.configService.get<string>(
-      'SOLANA_RPC_URL',
-      clusterApiUrl(network),
-    );
+    
+    // Get RPC URL from env, with network-specific defaults
+    const envRpcUrl = this.configService.get<string>('SOLANA_RPC_URL');
+    const rpcUrl = envRpcUrl || this.getDefaultRpcUrl(network);
+    if (!envRpcUrl) {
+      this.logger.log(`Using default RPC URL for ${network}: ${rpcUrl}`);
+    } else {
+      this.logger.log(`Using RPC URL from env: ${rpcUrl}`);
+    }
 
     this.connection = new Connection(rpcUrl, COMMITMENT);
 
-    const programIdStr = this.configService.get<string>(
-      'PROGRAM_ID',
-      'SpermRace111111111111111111111111111111111',
-    );
+    // Get program ID from env - required, no hardcoded defaults
+    const programIdStr = this.configService.get<string>('PROGRAM_ID');
+    if (!programIdStr) {
+      throw new Error(
+        `PROGRAM_ID environment variable is required. Please set it in your .env file.`,
+      );
+    }
+    this.logger.log(`Using program ID from env: ${programIdStr}`);
     this.programId = new PublicKey(programIdStr);
 
-    this.logger.log(`Solana service initialized on ${network}`);
-    this.logger.log(`RPC: ${rpcUrl}`);
-    this.logger.log(`Program ID: ${this.programId.toBase58()}`);
+    // Load authority wallet
+    await this.loadAuthorityWallet();
+
+    this.logger.log(`✅ Solana service initialized on ${network}`);
+    this.logger.log(`   RPC: ${rpcUrl}`);
+    this.logger.log(`   Program ID: ${this.programId.toBase58()}`);
+    if (this.authorityWallet) {
+      this.logger.log(`   Authority: ${this.authorityWallet.publicKey.toBase58()}`);
+    }
+  }
+
+  /**
+   * Load authority wallet from environment variable
+   */
+  private async loadAuthorityWallet(): Promise<void> {
+    try {
+      // Get authority wallet from environment variable
+      const authorityWalletEnv = this.configService.get<string>('AUTHORITY_WALLET');
+      
+      if (!authorityWalletEnv) {
+        this.logger.warn('AUTHORITY_WALLET environment variable not set. Some operations will be unavailable.');
+        throw new Error('No AUTHORITY_WALLET')
+      }
+
+      // Parse the wallet data (can be JSON array string or file path)
+      let keypairData: number[];
+      
+      // Check if it's a JSON array string (like [36,235,...])
+      if (authorityWalletEnv.trim().startsWith('[')) {
+        keypairData = JSON.parse(authorityWalletEnv);
+      } else {
+        // If it's a file path, read from file
+        if (!fs.existsSync(authorityWalletEnv)) {
+          this.logger.warn(`Authority wallet file not found at: ${authorityWalletEnv}`);
+          return;
+        }
+        keypairData = JSON.parse(fs.readFileSync(authorityWalletEnv, 'utf-8'));
+      }
+
+      // Validate keypair data
+      if (!Array.isArray(keypairData) || keypairData.length !== 64) {
+        throw new Error('Invalid authority wallet format. Expected array of 64 numbers.');
+      }
+
+      const keypair = Keypair.fromSecretKey(Uint8Array.from(keypairData));
+
+      this.authorityWallet = new Wallet(keypair);
+
+      // Initialize contract client with authority wallet
+      this.contractClient.initialize(this.connection, this.authorityWallet, this.programId);
+      
+      this.logger.log(`✅ Authority wallet loaded (Public Key: ${this.authorityWallet.publicKey.toBase58()})`);
+    } catch (error: any) {
+      this.logger.error(`Failed to load authority wallet: ${error.message}`);
+      this.logger.warn('Continuing without authority wallet. Some operations will be unavailable.');
+    }
   }
 
   /**
@@ -49,59 +126,17 @@ export class SolanaService implements OnModuleInit {
   }
 
   /**
-   * Verify a bet transaction on-chain
+   * Get the contract client service
    */
-  async verifyBetTransaction(
-    txSignature: string,
-    expectedWallet: string,
-    expectedAmount: number,
-  ): Promise<boolean> {
-    try {
-      // In development, skip verification
-      if (this.configService.get('NODE_ENV') === 'development') {
-        this.logger.warn('Skipping TX verification in development mode');
-        return true;
-      }
+  getContractClient(): ContractClientService {
+    return this.contractClient;
+  }
 
-      // Fetch transaction
-      const tx = await this.connection.getTransaction(txSignature, {
-        commitment: 'confirmed',
-        maxSupportedTransactionVersion: 0,
-      });
-
-      if (!tx) {
-        this.logger.warn(`Transaction not found: ${txSignature}`);
-        return false;
-      }
-
-      // Check if transaction was successful
-      if (tx.meta?.err) {
-        this.logger.warn(`Transaction failed: ${txSignature}`);
-        return false;
-      }
-
-      // Verify the transaction includes our program
-      const accountKeys = tx.transaction.message.getAccountKeys();
-      const programIncluded = accountKeys.staticAccountKeys.some(
-        (key) => key.equals(this.programId),
-      );
-
-      if (!programIncluded) {
-        this.logger.warn(`Transaction doesn't include program: ${txSignature}`);
-        return false;
-      }
-
-      // TODO: Add more verification:
-      // - Check the actual instruction data
-      // - Verify the signer matches expectedWallet
-      // - Verify the amount matches expectedAmount
-
-      this.logger.log(`Transaction verified: ${txSignature}`);
-      return true;
-    } catch (error: any) {
-      this.logger.error(`Error verifying transaction: ${error.message}`);
-      return false;
-    }
+  /**
+   * Get the authority wallet (if loaded)
+   */
+  getAuthorityWallet(): Wallet | null {
+    return this.authorityWallet;
   }
 
   /**

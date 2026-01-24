@@ -8,7 +8,7 @@ import {
   PHASE_DURATIONS,
   HOUSE_FEE_PERCENT,
   RACE_FPS,
-} from '@sperm-race/shared';
+} from '../../common';
 import { GameGateway } from './game.gateway';
 import { BettingService } from '../betting/betting.service';
 import { RngService } from '../rng/rng.service';

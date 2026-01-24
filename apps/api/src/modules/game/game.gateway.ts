@@ -19,7 +19,7 @@ import {
   PlaceBetPayload,
   PlaceBetResponse,
   GameStateEvent,
-} from '@sperm-race/shared';
+} from '../../common';
 
 @WebSocketGateway({
   cors: {
