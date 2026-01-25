@@ -8,7 +8,7 @@ skip-lint = false
 sperm_race = "EPLZGLkPntoQswDdtDdgZ3kK1jrQBJC66dgadtyeDEry"
 
 [programs.localnet]
-sperm_race = "CNgqKqXLnzyzuqvZHewxMeE55UbEquQMMRVE7Fdqz7Zh"
+sperm_race = "HntbeNBqUZuFpXXeQNKa2XFZKYS2gnUfUR1osCgS2S1E"
 
 [registry]
 url = "https://api.apr.dev"

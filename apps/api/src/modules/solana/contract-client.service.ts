@@ -63,20 +63,6 @@ export class ContractClientService {
   }
 
   /**
-   * Get bet record PDA
-   */
-  getBetRecordPda(programId: PublicKey, user: PublicKey, roundId: BN): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [
-        Buffer.from('bet'),
-        user.toBuffer(),
-        roundId.toArrayLike(Buffer, 'le', 8),
-      ],
-      programId,
-    );
-  }
-
-  /**
    * Fetch global state account
    */
   async fetchGlobalState(programId: PublicKey): Promise<{
@@ -139,7 +125,6 @@ export class ContractClientService {
     const program = this.getProgram();
     const [globalStatePda] = this.getGlobalStatePda(programId);
 
-    console.log("BABIK : " , globalStatePda.toString())
     const tx = await program.methods
       .initializeGame()
       .accounts({
@@ -166,7 +151,6 @@ export class ContractClientService {
     const [roundAccountPda] = this.getRoundAccountPda(programId, roundId);
 
     const x = await program.account.globalState.fetch(globalStatePda)
-    console.log("KNTL : ", x.currentRound, roundId)
 
     // Convert hashedSeed array to [u8; 32]
     const hashedSeedArray = new Uint8Array(32);

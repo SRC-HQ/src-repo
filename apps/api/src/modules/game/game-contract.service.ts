@@ -4,7 +4,7 @@ import { BN } from '@coral-xyz/anchor';
 import { SolanaService } from '../solana/solana.service';
 import { RngService } from '../rng/rng.service';
 import { GameGateway } from './game.gateway';
-import { PHASE_DURATIONS, SPERM_COUNT } from '../../common';
+import { PHASE_DURATIONS, RoundState, SPERM_COUNT } from '../../common';
 import * as crypto from 'crypto';
 
 /**
@@ -206,7 +206,8 @@ export class GameContractService implements OnModuleInit {
     this.logger.log(`🎲 Winner determined: Sperm #${winnerId}`);
 
     // Broadcast race start to frontend
-    const phaseEndsAt = Date.now() + this.resolutionDuration;
+    const phaseStartTime = Date.now();
+    const phaseEndsAt = phaseStartTime + this.resolutionDuration;
     this.gateway.broadcastRaceStart({
       roundId,
       winner: winnerId,
@@ -232,9 +233,10 @@ export class GameContractService implements OnModuleInit {
     this.logger.log(`✅ Round ${roundId} resolved on-chain: Winner is sperm #${winnerId}`);
 
     // Wait for remaining time
-    const elapsed = Date.now() - (phaseEndsAt - this.resolutionDuration);
-    if (elapsed < this.resolutionDuration) {
-      await this.sleep(this.resolutionDuration - elapsed);
+    const elapsed = Date.now() - phaseStartTime;
+    const remaining = this.resolutionDuration - elapsed;
+    if (remaining > 0 && remaining <= this.resolutionDuration) {
+      await this.sleep(remaining);
     }
   }
 
@@ -256,7 +258,6 @@ export class GameContractService implements OnModuleInit {
       this.logger.log(`Round ${roundId} - Winner: #${winnerId}, Total Pot: ${totalPot} lamports`);
 
       // Broadcast distribution phase to frontend
-      const phaseEndsAt = Date.now() + this.distributionDuration;
       this.gateway.broadcastDistribution({
         roundId,
         result: {
@@ -346,6 +347,17 @@ export class GameContractService implements OnModuleInit {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    // Safety check: setTimeout only accepts 32-bit signed integers (max ~2.1 billion ms = ~24 days)
+    // Clamp to maximum safe value to prevent TimeoutOverflowWarning
+    const MAX_SAFE_TIMEOUT = 2147483647; // 2^31 - 1
+    const safeMs = Math.max(0, Math.min(ms, MAX_SAFE_TIMEOUT));
+    
+    if (ms !== safeMs) {
+      this.logger.warn(
+        `⚠️ Sleep duration clamped from ${ms}ms to ${safeMs}ms (max safe: ${MAX_SAFE_TIMEOUT}ms)`,
+      );
+    }
+    
+    return new Promise((resolve) => setTimeout(resolve, safeMs));
   }
 }

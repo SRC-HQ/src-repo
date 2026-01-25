@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { GameService } from './game.service';
 import { GameContractService } from './game-contract.service';
 import { GameGateway } from './game.gateway';
 import { GameController } from './game.controller';
@@ -9,8 +8,8 @@ import { SolanaModule } from '../solana/solana.module';
 
 @Module({
   imports: [BettingModule, RngModule, SolanaModule],
-  providers: [GameService, GameContractService, GameGateway],
+  providers: [GameContractService, GameGateway],
   controllers: [GameController],
-  exports: [GameService, GameContractService, GameGateway],
+  exports: [GameContractService, GameGateway],
 })
 export class GameModule {}

@@ -1,21 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
-import { GameService } from './game.service';
 import { GameGateway } from './game.gateway';
+import { GameContractService } from './game-contract.service';
 
 @Controller('game')
 export class GameController {
   constructor(
-    private readonly gameService: GameService,
     private readonly gameGateway: GameGateway,
+    private readonly gameContractService: GameContractService,
   ) {}
-
-  /**
-   * Get current game state
-   */
-  @Get('state')
-  getState() {
-    return this.gameService.getCurrentState();
-  }
 
   /**
    * Get server stats
@@ -24,8 +16,6 @@ export class GameController {
   getStats() {
     return {
       connectedClients: this.gameGateway.getConnectedClientsCount(),
-      currentRound: this.gameService.getCurrentRoundId(),
-      canAcceptBets: this.gameService.canAcceptBets(),
     };
   }
 

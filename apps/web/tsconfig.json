@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@sperm-race/contracts": ["../../packages/contracts/target/types/sperm_race.ts"],
+      "@sperm-race/contracts/idl": ["../../packages/contracts/target/idl/sperm_race.json"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
