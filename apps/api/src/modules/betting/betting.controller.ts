@@ -17,10 +17,7 @@ export class BettingController {
    * Get bets for a wallet in a round
    */
   @Get('bets/:roundId')
-  getBets(
-    @Param('roundId') roundId: string,
-    @Query('wallet') wallet: string,
-  ) {
+  getBets(@Param('roundId') roundId: string, @Query('wallet') wallet: string) {
     if (wallet) {
       return this.bettingService.getBetsByWallet(parseInt(roundId, 10), wallet);
     }

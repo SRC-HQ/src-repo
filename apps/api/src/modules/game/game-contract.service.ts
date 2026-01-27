@@ -46,7 +46,7 @@ export class GameContractService implements OnModuleInit {
   async onModuleInit() {
     // Check if game is initialized on-chain
     await this.ensureGameInitialized();
-    
+
     // Start the game loop
     this.logger.log('Game contract service initialized, starting game loop...');
     setTimeout(() => this.startGameLoop(), 2000);
@@ -75,7 +75,9 @@ export class GameContractService implements OnModuleInit {
         );
         this.logger.log('Game initialized successfully');
       } else {
-        this.logger.log(`Game already initialized. Current round: ${globalState.currentRound.toString()}`);
+        this.logger.log(
+          `Game already initialized. Current round: ${globalState.currentRound.toString()}`,
+        );
         this.currentRoundId = globalState.currentRound.toNumber();
       }
     } catch (error: any) {
@@ -101,7 +103,7 @@ export class GameContractService implements OnModuleInit {
         const contractClient = this.solanaService.getContractClient();
         const programId = this.solanaService.getProgramId();
         const globalState = await contractClient.fetchGlobalState(programId);
-        
+
         if (globalState) {
           this.currentRoundId = globalState.currentRound.toNumber();
         }
@@ -143,7 +145,9 @@ export class GameContractService implements OnModuleInit {
     const hashBuffer = hasher.digest();
     this.currentHashedSeed = Array.from(hashBuffer);
 
-    this.logger.log(`🔐 Generated hashed seed: ${Buffer.from(hashBuffer).toString('hex').substring(0, 16)}...`);
+    this.logger.log(
+      `🔐 Generated hashed seed: ${Buffer.from(hashBuffer).toString('hex').substring(0, 16)}...`,
+    );
 
     // Start round on-chain
     const authorityWallet = this.solanaService.getAuthorityWallet();
@@ -154,12 +158,13 @@ export class GameContractService implements OnModuleInit {
     const contractClient = this.solanaService.getContractClient();
     const programId = this.solanaService.getProgramId();
     await this.retryTransaction(
-      () => contractClient.startRound(
-        programId,
-        authorityWallet.publicKey,
-        this.currentHashedSeed!,
-        new BN(roundId),
-      ),
+      () =>
+        contractClient.startRound(
+          programId,
+          authorityWallet.publicKey,
+          this.currentHashedSeed!,
+          new BN(roundId),
+        ),
       'startRound',
     );
 
@@ -221,13 +226,14 @@ export class GameContractService implements OnModuleInit {
     // Resolve round on-chain (while animation is playing)
     const serverSeedArray = Array.from(this.currentServerSeed!);
     await this.retryTransaction(
-      () => contractClient.resolveRound(
-        programId,
-        authorityWallet.publicKey,
-        new BN(roundId),
-        winnerId,
-        serverSeedArray,
-      ),
+      () =>
+        contractClient.resolveRound(
+          programId,
+          authorityWallet.publicKey,
+          new BN(roundId),
+          winnerId,
+          serverSeedArray,
+        ),
       'resolveRound',
     );
     this.logger.log(`✅ Round ${roundId} resolved on-chain: Winner is sperm #${winnerId}`);
@@ -254,7 +260,7 @@ export class GameContractService implements OnModuleInit {
     if (roundAccount) {
       const winnerId = roundAccount.winnerId;
       const totalPot = roundAccount.totalPot.toString();
-      
+
       this.logger.log(`Round ${roundId} - Winner: #${winnerId}, Total Pot: ${totalPot} lamports`);
 
       // Broadcast distribution phase to frontend
@@ -334,9 +340,7 @@ export class GameContractService implements OnModuleInit {
       }
     }
 
-    throw new Error(
-      `${operation} failed after ${maxRetries} attempts: ${lastError?.message}`,
-    );
+    throw new Error(`${operation} failed after ${maxRetries} attempts: ${lastError?.message}`);
   }
 
   /**
@@ -351,13 +355,13 @@ export class GameContractService implements OnModuleInit {
     // Clamp to maximum safe value to prevent TimeoutOverflowWarning
     const MAX_SAFE_TIMEOUT = 2147483647; // 2^31 - 1
     const safeMs = Math.max(0, Math.min(ms, MAX_SAFE_TIMEOUT));
-    
+
     if (ms !== safeMs) {
       this.logger.warn(
         `⚠️ Sleep duration clamped from ${ms}ms to ${safeMs}ms (max safe: ${MAX_SAFE_TIMEOUT}ms)`,
       );
     }
-    
+
     return new Promise((resolve) => setTimeout(resolve, safeMs));
   }
 }

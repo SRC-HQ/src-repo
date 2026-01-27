@@ -1,12 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  Bet,
-  BetStatus,
-  CreateBetDto,
-  PoolState,
-  WinnerPayout,
-  SPERM_COUNT,
-} from '../../common';
+import { Bet, BetStatus, CreateBetDto, PoolState, WinnerPayout, SPERM_COUNT } from '../../common';
 import { SolanaService } from '../solana/solana.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -160,18 +153,14 @@ export class BettingService {
     const netPool = totalPool - houseFee;
 
     // Get all bets on winning sperm
-    const winningBets = Array.from(round.bets.values()).filter(
-      (bet) => bet.spermId === winnerId,
-    );
+    const winningBets = Array.from(round.bets.values()).filter((bet) => bet.spermId === winnerId);
 
     const totalWinningBets = winningBets.reduce((sum, bet) => sum + bet.amount, 0);
 
     // Calculate payouts
     const winners: WinnerPayout[] = winningBets.map((bet) => {
       const payout =
-        totalWinningBets > 0
-          ? Math.floor((bet.amount / totalWinningBets) * netPool)
-          : 0;
+        totalWinningBets > 0 ? Math.floor((bet.amount / totalWinningBets) * netPool) : 0;
 
       // Update bet record
       bet.payoutAmount = payout;
@@ -248,9 +237,7 @@ export class BettingService {
     const round = this.rounds.get(roundId);
     if (!round) return [];
 
-    return Array.from(round.bets.values()).filter(
-      (bet) => bet.walletAddress === walletAddress,
-    );
+    return Array.from(round.bets.values()).filter((bet) => bet.walletAddress === walletAddress);
   }
 
   /**

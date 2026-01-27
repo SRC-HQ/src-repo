@@ -127,14 +127,11 @@ export interface ServerToClientEvents {
   'race:positions': (data: PositionsEvent) => void;
   'pool:updated': (data: PoolUpdatedEvent) => void;
   'distribution:results': (data: DistributionEvent) => void;
-  'error': (data: ErrorEvent) => void;
+  error: (data: ErrorEvent) => void;
 }
 
 export interface ClientToServerEvents {
-  'bet:place': (
-    data: PlaceBetPayload,
-    callback: (response: PlaceBetResponse) => void,
-  ) => void;
+  'bet:place': (data: PlaceBetPayload, callback: (response: PlaceBetResponse) => void) => void;
 }
 
 export interface InterServerEvents {

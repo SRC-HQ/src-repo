@@ -67,7 +67,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: PlaceBetPayload,
   ): Promise<PlaceBetResponse> {
-    this.logger.log(`Bet received from ${client.id}: Sperm #${data.spermId}, ${data.amount} lamports`);
+    this.logger.log(
+      `Bet received from ${client.id}: Sperm #${data.spermId}, ${data.amount} lamports`,
+    );
 
     try {
       // Check if betting is allowed

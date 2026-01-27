@@ -23,10 +23,7 @@ export class RngService {
    * Users can verify this themselves
    */
   verifyCommitment(seed: string, commitment: string): boolean {
-    const calculatedCommitment = crypto
-      .createHash('sha256')
-      .update(seed)
-      .digest('hex');
+    const calculatedCommitment = crypto.createHash('sha256').update(seed).digest('hex');
 
     return calculatedCommitment === commitment;
   }
@@ -37,7 +34,10 @@ export class RngService {
    */
   determineWinner(seed: string, spermCount: number): number {
     // Use seed to generate deterministic random number
-    const hash = crypto.createHash('sha256').update(seed + ':winner').digest();
+    const hash = crypto
+      .createHash('sha256')
+      .update(seed + ':winner')
+      .digest();
 
     // Convert first 4 bytes to number, mod by sperm count
     const randomValue = hash.readUInt32BE(0);

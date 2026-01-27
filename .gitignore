@@ -62,3 +62,6 @@ packages/contracts/keys/env.local
 .cache
 *.pid
 *.seed
+
+# Docs
+docs
