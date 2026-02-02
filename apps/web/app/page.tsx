@@ -14,7 +14,7 @@ const WalletMultiButton = dynamic(
   { ssr: false },
 );
 
-const PROGRAM_ID = new PublicKey('HntbeNBqUZuFpXXeQNKa2XFZKYS2gnUfUR1osCgS2S1E');
+const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID!);
 
 export default function Home() {
   const { connection } = useConnection();
@@ -74,14 +74,30 @@ export default function Home() {
     return pda;
   };
 
-  // UPDATED: Now includes spermId in seeds
+  const getGlobalStatePda = (): PublicKey => {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('global_state')],
+      PROGRAM_ID,
+    );
+    return pda;
+  };
+
+  const getBabyKingVaultPda = (): PublicKey => {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('baby_king_vault')],
+      PROGRAM_ID,
+    );
+    return pda;
+  };
+
+  // UPDATED: Now includes spermId in seeds (matches contract: bet + user + round_id + sperm_id)
   const getBetRecordPda = (user: PublicKey, roundId: number, spermId: number): PublicKey => {
     const [pda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from('bet'),
         user.toBuffer(),
         new BN(roundId).toArrayLike(Buffer, 'le', 8),
-        Buffer.from([spermId]), // Added sperm_id seed
+        Buffer.from([spermId]),
       ],
       PROGRAM_ID,
     );
@@ -127,6 +143,7 @@ export default function Home() {
       // Loop through all selected sperms and add instructions to ONE transaction
       for (const spermId of Array.from(selectedSperms)) {
         const betRecordPda = getBetRecordPda(publicKey, roundIdNum, spermId);
+        console.log("BET_RECORD & sperm_id: ", roundAccountPda.toString(), spermId)
 
         const ix = await program.methods
           .placeBet(new BN(roundIdNum), spermId, new BN(lamports))
@@ -155,7 +172,7 @@ export default function Home() {
   };
 
   const handleClaimWinnings = async () => {
-    if (!publicKey || !program) {
+    if (!publicKey || !program || !connection) {
       setMessage('Connect wallet first');
       return;
     }
@@ -167,29 +184,35 @@ export default function Home() {
       const rId = parseInt(claimRoundId);
       const sId = parseInt(claimSpermId);
 
-      // Derive the specific PDA for this winner
       const roundAccountPda = getRoundAccountPda(rId);
+      const globalStatePda = getGlobalStatePda();
+      const babyKingVaultPda = getBabyKingVaultPda();
       const betRecordPda = getBetRecordPda(publicKey, rId, sId);
 
-      console.log('Claiming for PDA:', betRecordPda.toBase58());
+      // Treasury is stored in global_state; must be passed explicitly per IDL
+      const globalState = await program.account.globalState.fetch(globalStatePda);
+      const treasury = globalState.treasury as PublicKey;
 
+      console.log("ROUNDACCOUNT: ", roundAccountPda.toString())
+      // console.log("BET: ", getBetRecordPda(publicKey, 16, 8).toString())
       const tx = await program.methods
-        .claimWinnings()
+        .claimWinnings(sId)
         .accounts({
           roundAccount: roundAccountPda,
+          globalState: globalStatePda,
+          babyKingVault: babyKingVaultPda,
           betRecord: betRecordPda,
           user: publicKey,
+          treasury,
         } as any)
         .rpc();
 
       setMessage(`Claim successful! Signature: ${tx.substring(0, 8)}`);
 
-      // Refresh balance
       const newBalance = await connection.getBalance(publicKey);
       setBalance(newBalance);
     } catch (error: any) {
       console.error(error);
-      // If they didn't win, the program will throw "NotAWinner" or "AccountNotInitialized"
       setMessage(`Claim failed: ${error.message || 'Are you sure you won?'}`);
     } finally {
       setClaiming(false);
