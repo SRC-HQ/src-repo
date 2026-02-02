@@ -3,9 +3,6 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  SubscribeMessage,
-  MessageBody,
-  ConnectedSocket,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
@@ -16,8 +13,6 @@ import {
   RaceStartEvent,
   PositionsEvent,
   DistributionEvent,
-  PlaceBetPayload,
-  PlaceBetResponse,
   GameStateEvent,
 } from '../../common';
 
@@ -36,11 +31,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private connectedClients: Map<string, Socket> = new Map();
   private gameService: any; // Will be injected later to avoid circular dependency
-  private bettingService: any;
 
-  setServices(gameService: any, bettingService: any) {
+  setServices(gameService: any) {
     this.gameService = gameService;
-    this.bettingService = bettingService;
   }
 
   handleConnection(client: Socket) {
@@ -57,50 +50,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleDisconnect(client: Socket) {
     this.connectedClients.delete(client.id);
     this.logger.log(`Client disconnected: ${client.id} (Total: ${this.connectedClients.size})`);
-  }
-
-  /**
-   * Handle bet placement from client
-   */
-  @SubscribeMessage('bet:place')
-  async handlePlaceBet(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: PlaceBetPayload,
-  ): Promise<PlaceBetResponse> {
-    this.logger.log(`Bet received from ${client.id}: Sperm #${data.spermId}, ${data.amount} lamports`);
-
-    try {
-      // Check if betting is allowed
-      if (!this.gameService?.canAcceptBets()) {
-        return {
-          success: false,
-          error: 'Betting is not currently allowed',
-        };
-      }
-
-      // Process the bet
-      const result = await this.bettingService.placeBet({
-        roundId: this.gameService.getCurrentRoundId(),
-        walletAddress: data.txSignature.substring(0, 44), // TODO: Extract from TX
-        spermId: data.spermId,
-        amount: data.amount,
-        txSignature: data.txSignature,
-      });
-
-      // Broadcast pool update to all clients
-      this.broadcastPoolUpdated(result.spermId, result.pools);
-
-      return {
-        success: true,
-        betId: result.betId,
-      };
-    } catch (error: any) {
-      this.logger.error(`Error placing bet: ${error.message}`);
-      return {
-        success: false,
-        error: error.message || 'Failed to place bet',
-      };
-    }
   }
 
   // ===========================================
@@ -126,33 +75,4 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.emit('distribution:results', data);
   }
 
-  broadcastPoolUpdated(spermId: number, pools: any[]) {
-    const totalPool = pools.reduce((sum, p) => sum + p.totalBets, 0);
-    const odds = this.calculateOdds(pools, totalPool);
-
-    this.server.emit('pool:updated', {
-      spermId,
-      totalPool,
-      odds,
-      pools,
-    });
-  }
-
-  private calculateOdds(pools: any[], totalPool: number): number[] {
-    if (totalPool === 0) {
-      return pools.map(() => 1);
-    }
-
-    const houseFee = 0.15; // 15%
-    const netPool = totalPool * (1 - houseFee);
-
-    return pools.map((pool) => {
-      if (pool.totalBets === 0) return 0;
-      return Math.round((netPool / pool.totalBets) * 100) / 100;
-    });
-  }
-
-  getConnectedClientsCount(): number {
-    return this.connectedClients.size;
-  }
 }

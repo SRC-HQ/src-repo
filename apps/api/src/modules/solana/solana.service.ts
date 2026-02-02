@@ -1,10 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Connection, PublicKey, Keypair, Cluster } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import { Wallet } from '@coral-xyz/anchor';
-import { COMMITMENT, SolanaNetwork, SOLANA_NETWORKS, DEFAULT_RPC_URLS } from '../../common';
+import { COMMITMENT, SolanaNetwork, SOLANA_NETWORKS, DEFAULT_RPC_URLS } from '@/common';
 import { ContractClientService } from './contract-client.service';
-import * as fs from 'fs';
 
 @Injectable()
 export class SolanaService implements OnModuleInit {
@@ -50,7 +49,6 @@ export class SolanaService implements OnModuleInit {
         `PROGRAM_ID environment variable is required. Please set it in your .env file.`,
       );
     }
-    this.logger.log(`Using program ID from env: ${programIdStr}`);
     this.programId = new PublicKey(programIdStr);
 
     // Load authority wallet
@@ -84,12 +82,7 @@ export class SolanaService implements OnModuleInit {
       if (authorityWalletEnv.trim().startsWith('[')) {
         keypairData = JSON.parse(authorityWalletEnv);
       } else {
-        // If it's a file path, read from file
-        if (!fs.existsSync(authorityWalletEnv)) {
-          this.logger.warn(`Authority wallet file not found at: ${authorityWalletEnv}`);
-          return;
-        }
-        keypairData = JSON.parse(fs.readFileSync(authorityWalletEnv, 'utf-8'));
+        throw new Error('AUTHORITY_WALLET not set in ENV')
       }
 
       // Validate keypair data
@@ -137,6 +130,32 @@ export class SolanaService implements OnModuleInit {
    */
   getAuthorityWallet(): Wallet | null {
     return this.authorityWallet;
+  }
+
+  /**
+   * Get treasury wallet public key from TREASURY_WALLET env (keypair array).
+   * Required for initializing the game. Throws if TREASURY_WALLET is missing or invalid.
+   */
+  getTreasuryWalletPublicKey(): PublicKey {
+    const treasuryWalletEnv = this.configService.get<string>('TREASURY_WALLET');
+    if (!treasuryWalletEnv?.trim()) {
+      throw new Error(
+        'TREASURY_WALLET environment variable is required to initialize the game. Please set it in your .env file.',
+      );
+    }
+    let keypairData: number[];
+    if (treasuryWalletEnv.trim().startsWith('[')) {
+      keypairData = JSON.parse(treasuryWalletEnv);
+    } else {
+      throw new Error(
+        'TREASURY_WALLET must be a JSON array of 64 numbers (keypair). Please set it in your .env file.',
+      );
+    }
+    if (!Array.isArray(keypairData) || keypairData.length !== 64) {
+      throw new Error('Invalid TREASURY_WALLET format. Expected array of 64 numbers.');
+    }
+    const keypair = Keypair.fromSecretKey(Uint8Array.from(keypairData));
+    return keypair.publicKey;
   }
 
   /**

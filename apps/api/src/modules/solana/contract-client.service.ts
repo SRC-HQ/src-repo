@@ -119,22 +119,37 @@ export class ContractClientService {
   }
 
   /**
-   * Initialize the game
+   * Initialize the game with authority and treasury wallet pubkeys
    */
-  async initializeGame(programId: PublicKey, authority: PublicKey): Promise<string> {
+  async initializeGame(
+    programId: PublicKey,
+    authority: PublicKey,
+    treasury: PublicKey,
+  ): Promise<string> {
     const program = this.getProgram();
     const [globalStatePda] = this.getGlobalStatePda(programId);
 
     const tx = await program.methods
-      .initializeGame()
+      .initializeGame(treasury)
       .accounts({
         globalState: globalStatePda,
+        babyKingVault: this.getBabyKingVaultPda(programId)[0],
         authority: authority,
         systemProgram: SystemProgram.programId,
       } as any)
       .rpc();
 
     return tx;
+  }
+
+  /**
+   * Get baby king vault PDA
+   */
+  getBabyKingVaultPda(programId: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('baby_king_vault')],
+      programId,
+    );
   }
 
   /**

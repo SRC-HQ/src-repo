@@ -14,9 +14,6 @@ export const MAX_BET_LAMPORTS = 10_000_000_000;
 /** Transaction confirmation commitment level */
 export const COMMITMENT = 'confirmed' as const;
 
-/** Maximum number of bets per wallet per round */
-export const MAX_BETS_PER_WALLET_PER_ROUND = 10;
-
 /** Solana networks */
 export const SOLANA_NETWORKS = {
   MAINNET: 'mainnet-beta',
