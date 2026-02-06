@@ -61,7 +61,7 @@ export class IndexingService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Localnet only: subscribe to program logs.
-   * Detect instruction name (e.g. "Instruction: PlaceBet"), pass raw payload to responsible module.
+   * Detect instruction names (e.g. multiple \"Instruction: PlaceBet\"), pass raw payload to responsible modules.
    * Each module parses logs on its own.
    */
   private async startLocalnetIndexing(programId: string): Promise<void> {
@@ -73,8 +73,8 @@ export class IndexingService implements OnModuleInit, OnModuleDestroy {
       async (logs, context) => {
         if (!this.isIndexing) return;
 
-        const instruction = this.detectInstruction(logs.logs);
-        if (!instruction) return;
+        const instructions = this.detectInstructions(logs.logs);
+        if (instructions.size === 0) return;
 
         try {
           const slot = context.slot;
@@ -82,19 +82,26 @@ export class IndexingService implements OnModuleInit, OnModuleDestroy {
           const blockTime = await connection.getBlockTime(slot).catch(() => null);
 
           const payload: RawInstructionPayload = {
-            instruction,
+            // Keep a representative instruction for backwards compatibility; services should rely on events.
+            instruction: Array.from(instructions)[0] ?? '',
             logs: logs.logs,
             signature,
             slot,
             blockTime,
           };
 
-          if (instruction === 'PlaceBet') {
+          if (instructions.has('PlaceBet')) {
             await this.betHistoryService.handleInstruction(payload);
-          } else if (instruction === 'StartRound') {
+          }
+
+          if (
+            instructions.has('StartRound') ||
+            instructions.has('LockBetting') ||
+            instructions.has('ResolveRound') ||
+            instructions.has('ClaimWinnings')
+          ) {
             await this.roundHistoryService.handleInstruction(payload);
           }
-          // Future: else if (instruction === 'ClaimWinnings') { await this.claimHistoryService.handleInstruction(payload); }
         } catch (e: any) {
           this.logger.error(`Indexing error: ${e.message}`, e.stack);
         }
@@ -104,14 +111,15 @@ export class IndexingService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Localnet onLogs subscription active (ID: ${this.subscriptionId})`);
   }
 
-  /** Extract instruction name from logs, e.g. "Program log: Instruction: PlaceBet" -> "PlaceBet". */
-  private detectInstruction(logs: string[]): string | null {
+  /** Extract all instruction names from logs, e.g. multiple \"Program log: Instruction: PlaceBet\". */
+  private detectInstructions(logs: string[]): Set<string> {
+    const names = new Set<string>();
     for (const line of logs) {
       if (line.startsWith(INSTRUCTION_PREFIX)) {
-        return line.slice(INSTRUCTION_PREFIX.length).trim();
+        names.add(line.slice(INSTRUCTION_PREFIX.length).trim());
       }
     }
-    return null;
+    return names;
   }
 
   private async stopLocalnetIndexing(): Promise<void> {

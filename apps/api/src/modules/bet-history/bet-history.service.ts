@@ -39,8 +39,6 @@ export class BetHistoryService {
    * Called by indexer when instruction is PlaceBet. Parses logs and records bet.
    */
   async handleInstruction(payload: RawInstructionPayload): Promise<void> {
-    if (payload.instruction !== 'PlaceBet') return;
-
     const events = this.eventParser?.parseLogs(payload.logs) ?? [];
     for (const evt of events) {
       if (evt.name !== 'PlaceBetEvent') continue;
@@ -59,7 +57,7 @@ export class BetHistoryService {
       };
 
       await this.recordBet(bet);
-      break; // one PlaceBetEvent per tx
+      // Do not break: a single transaction can contain multiple PlaceBet calls.
     }
   }
 

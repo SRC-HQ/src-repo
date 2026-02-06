@@ -6,14 +6,39 @@ import { PublicKey } from '@solana/web3.js';
 import { BorshEventCoder, EventParser, Idl } from '@coral-xyz/anchor';
 import * as IDL from '@sperm-race/contracts/idl';
 import { RoundHistory } from '@/entities/round-history.entity';
-import { IndexedRoundStart } from '@/common';
+import { BetHistory } from '@/entities/bet-history.entity';
+import { DistributionHistory } from '@/entities/distribution-history.entity';
+import { IndexedRoundStart, IndexedRoundResolution } from '@/common';
 import { RawInstructionPayload } from '@/common/types/indexing';
 
 /** Decoded StartRoundEvent from chain (Anchor BN/PublicKey / bytes). */
 interface StartRoundEventData {
   round_id: { toNumber: () => number } | number;
   hashed_seed: number[] | Uint8Array | Buffer;
-  authority: { toBase58: () => string };
+  authority: { toBase58: () => string } | string;
+}
+
+/** Decoded LockBettingEvent from chain (Anchor BN/PublicKey / bytes). */
+interface LockBettingEventData {
+  round_id: { toNumber: () => number } | number;
+  authority: { toBase58: () => string } | string;
+}
+
+/** Decoded ResolveRoundEvent from chain (Anchor BN/PublicKey / bytes). */
+interface ResolveRoundEventData {
+  round_id: { toNumber: () => number } | number;
+  winner_id: { toNumber: () => number } | number;
+  total_pot: { toString: () => string } | number | string;
+  is_baby_king_hit: boolean;
+  baby_king_jackpot_snapshot: { toString: () => string } | number | string;
+}
+
+/** Decoded ClaimWinningsEvent from chain (Anchor BN/PublicKey). */
+interface ClaimWinningsEventData {
+  round_id: { toNumber: () => number } | number;
+  user: { toBase58: () => string } | string;
+  sperm_id: { toNumber: () => number } | number;
+  amount_claimed: { toString: () => string } | number | string;
 }
 
 /** Convert 32-byte seed to hex string. */
@@ -31,6 +56,10 @@ export class RoundHistoryService {
     private readonly configService: ConfigService,
     @InjectRepository(RoundHistory)
     private readonly roundHistoryRepo: Repository<RoundHistory>,
+    @InjectRepository(BetHistory)
+    private readonly betHistoryRepo: Repository<BetHistory>,
+    @InjectRepository(DistributionHistory)
+    private readonly distributionHistoryRepo: Repository<DistributionHistory>,
   ) {
     const programId = this.configService.get<string>('PROGRAM_ID');
     if (programId) {
@@ -41,38 +70,135 @@ export class RoundHistoryService {
   }
 
   /**
-   * Called by indexer when instruction is StartRound. Parses logs and upserts round_history.
+   * Called by indexer when instruction is StartRound, LockBetting, ResolveRound, or ClaimWinnings.
+   * - StartRound: parses logs and upserts round_history.
+   * - LockBetting: parses event only (no DB interaction for now).
+   * - ResolveRound: upserts round_history and creates distribution_history rows.
+   * - ClaimWinnings: updates distribution_history.claim_tx_hash.
    */
   async handleInstruction(payload: RawInstructionPayload): Promise<void> {
-    if (payload.instruction !== 'StartRound') return;
-
     const events = this.eventParser?.parseLogs(payload.logs) ?? [];
     for (const evt of events) {
-      if (evt.name !== 'StartRoundEvent') continue;
+      if (evt.name === 'StartRoundEvent') {
+        const data = evt.data as StartRoundEventData;
+        if (data?.round_id == null || data?.hashed_seed == null) continue;
 
-      const data = evt.data as StartRoundEventData;
-      if (data?.round_id == null || data?.hashed_seed == null) continue;
+        const roundId =
+          typeof data.round_id === 'number'
+            ? data.round_id
+            : (data.round_id as { toNumber: () => number }).toNumber();
+        const hashedSeed = hashedSeedToString(data.hashed_seed);
 
-      const roundId =
-        typeof data.round_id === 'number'
-          ? data.round_id
-          : (data.round_id as { toNumber: () => number }).toNumber();
-      const hashedSeed = hashedSeedToString(data.hashed_seed);
+        const round: IndexedRoundStart = {
+          roundId,
+          hashedSeed,
+          authority:
+            typeof (data.authority as any)?.toBase58 === 'function'
+              ? (data.authority as any).toBase58()
+              : String(data.authority ?? ''),
+          txHash: payload.signature,
+          slot: payload.slot,
+          blockTime: payload.blockTime,
+        };
 
-      const round: IndexedRoundStart = {
-        roundId,
-        hashedSeed,
-        authority:
-          typeof data.authority?.toBase58 === 'function'
-            ? data.authority.toBase58()
-            : String(data.authority ?? ''),
-        txHash: payload.signature,
-        slot: payload.slot,
-        blockTime: payload.blockTime,
-      };
+        await this.upsertRound(round);
+        break; // one StartRoundEvent per tx
+      }
 
-      await this.upsertRound(round);
-      break; // one StartRoundEvent per tx
+      if (evt.name === 'LockBettingEvent') {
+        const data = evt.data as LockBettingEventData;
+        if (data?.round_id == null) continue;
+
+        const roundId =
+          typeof data.round_id === 'number'
+            ? data.round_id
+            : (data.round_id as { toNumber: () => number }).toNumber();
+
+        const authority =
+          typeof (data.authority as any)?.toBase58 === 'function'
+            ? (data.authority as any).toBase58()
+            : String(data.authority ?? '');
+
+        this.logger.log(
+          `LockBettingEvent parsed: round_id=${roundId} authority=${authority} tx=${payload.signature} slot=${payload.slot}`,
+        );
+        break; // one LockBettingEvent per tx
+      }
+
+      if (evt.name === 'ResolveRoundEvent') {
+        const data = evt.data as ResolveRoundEventData;
+        if (data?.round_id == null || data?.winner_id == null || data?.total_pot == null) continue;
+
+        const roundId =
+          typeof data.round_id === 'number'
+            ? data.round_id
+            : (data.round_id as { toNumber: () => number }).toNumber();
+
+        const winnerSpermId =
+          typeof data.winner_id === 'number'
+            ? data.winner_id
+            : (data.winner_id as { toNumber: () => number }).toNumber();
+
+        const totalPot =
+          typeof data.total_pot === 'number'
+            ? String(data.total_pot)
+            : typeof (data.total_pot as any)?.toString === 'function'
+              ? (data.total_pot as any).toString()
+              : String(data.total_pot);
+
+        const isBabyKingHit = Boolean((data as any).is_baby_king_hit);
+
+        const babyKingJackpotSnapshot =
+          typeof (data as any).baby_king_jackpot_snapshot === 'number'
+            ? String((data as any).baby_king_jackpot_snapshot)
+            : typeof (data as any).baby_king_jackpot_snapshot?.toString === 'function'
+              ? (data as any).baby_king_jackpot_snapshot.toString()
+              : String((data as any).baby_king_jackpot_snapshot ?? '0');
+
+        const totalAddress = await this.computeTotalAddress(roundId);
+
+        const resolution: IndexedRoundResolution = {
+          roundId,
+          winnerSpermId,
+          totalPot,
+          totalAddress,
+          isBabyKingHit,
+          babyKingJackpotSnapshot,
+          txHash: payload.signature,
+          slot: payload.slot,
+          blockTime: payload.blockTime,
+        };
+
+        await this.applyResolution(resolution);
+        await this.createDistributionHistory(resolution);
+        break; // one ResolveRoundEvent per tx
+      }
+
+      if (evt.name === 'ClaimWinningsEvent') {
+        const data = evt.data as ClaimWinningsEventData;
+        if (data?.round_id == null || data?.user == null || data?.sperm_id == null) continue;
+
+        const roundId =
+          typeof data.round_id === 'number'
+            ? data.round_id
+            : (data.round_id as { toNumber: () => number }).toNumber();
+        const userAddress =
+          typeof (data.user as any)?.toBase58 === 'function'
+            ? (data.user as any).toBase58()
+            : String(data.user);
+        const spermId =
+          typeof data.sperm_id === 'number'
+            ? data.sperm_id
+            : (data.sperm_id as { toNumber: () => number }).toNumber();
+
+        await this.markDistributionClaimed(
+          String(roundId),
+          userAddress,
+          spermId,
+          payload.signature,
+        );
+        break; // one ClaimWinningsEvent per tx
+      }
     }
   }
 
@@ -108,5 +234,166 @@ export class RoundHistoryService {
       this.logger.error(`Failed to upsert round: ${err?.message}`, err?.stack);
       throw err;
     }
+  }
+
+  /** Compute total unique addresses that bet in a round (from bet_history). */
+  private async computeTotalAddress(roundId: number): Promise<number> {
+    const roundIdStr = String(roundId);
+    const result = await this.betHistoryRepo
+      .createQueryBuilder('bet')
+      .select('COUNT(DISTINCT bet.user_address)', 'cnt')
+      .where('bet.round_id = :roundId', { roundId: roundIdStr })
+      .getRawOne<{ cnt?: string }>();
+    return result?.cnt != null ? Number(result.cnt) : 0;
+  }
+
+  /** Apply resolution data to existing round_history row (or create if missing). */
+  async applyResolution(resolution: IndexedRoundResolution): Promise<void> {
+    try {
+      const roundIdStr = String(resolution.roundId);
+      const timestamp =
+        resolution.blockTime != null ? new Date(resolution.blockTime * 1000) : null;
+
+      let existing = await this.roundHistoryRepo.findOne({ where: { round_id: roundIdStr } });
+
+      if (!existing) {
+        existing = this.roundHistoryRepo.create({
+          round_id: roundIdStr,
+          winning_sperm_id: resolution.winnerSpermId,
+          total_pot: resolution.totalPot,
+          total_address: resolution.totalAddress,
+          is_babyking_hit: resolution.isBabyKingHit,
+          // Fallback hashed_seed when StartRound row is somehow missing.
+          hashed_seed: '0'.repeat(64),
+          tx_hash: resolution.txHash,
+          timestamp,
+        });
+      } else {
+        existing.winning_sperm_id = resolution.winnerSpermId;
+        existing.total_pot = resolution.totalPot;
+        existing.total_address = resolution.totalAddress;
+        existing.is_babyking_hit = resolution.isBabyKingHit;
+        existing.tx_hash = resolution.txHash;
+        existing.timestamp = timestamp ?? existing.timestamp;
+      }
+
+      await this.roundHistoryRepo.save(existing);
+
+      this.logger.log(
+        `Round resolved: round_id=${resolution.roundId} winner=${resolution.winnerSpermId} total_pot=${resolution.totalPot} total_address=${resolution.totalAddress} babyking=${resolution.isBabyKingHit}`,
+      );
+    } catch (err: any) {
+      this.logger.error(`Failed to apply round resolution: ${err?.message}`, err?.stack);
+      throw err;
+    }
+  }
+
+  /**
+   * Compute winning amount for a winner using the same formula as claim_winnings:
+   * raw_user_share = (user_bet * total_pot) / total_bets_on_winner
+   * house_fee = raw_user_share * 10 / 100, baby_king_tax = raw_user_share * 5 / 100
+   * net_winnings = raw_user_share - house_fee - baby_king_tax
+   * jackpot_share = (user_bet * baby_king_jackpot_snapshot) / total_bets_on_winner (if baby king hit)
+   * total_to_user = net_winnings + jackpot_share
+   */
+  private computeWinningAmount(
+    userBetLamports: bigint,
+    totalBetsOnWinner: bigint,
+    totalPot: bigint,
+    isBabyKingHit: boolean,
+    babyKingJackpotSnapshot: bigint,
+  ): bigint {
+    if (totalBetsOnWinner === 0n) return 0n;
+    const rawUserShare = (userBetLamports * totalPot) / totalBetsOnWinner;
+    const houseFee = (rawUserShare * 10n) / 100n;
+    const babyKingTax = (rawUserShare * 5n) / 100n;
+    const netWinnings = rawUserShare - houseFee - babyKingTax;
+    let jackpotShare = 0n;
+    if (isBabyKingHit && babyKingJackpotSnapshot > 0n) {
+      jackpotShare = (userBetLamports * babyKingJackpotSnapshot) / totalBetsOnWinner;
+    }
+    return netWinnings + jackpotShare;
+  }
+
+  /** Create distribution_history rows for all winners of the round (same payout as claim_winnings). */
+  private async createDistributionHistory(resolution: IndexedRoundResolution): Promise<void> {
+    const roundIdStr = String(resolution.roundId);
+    const winnerId = resolution.winnerSpermId;
+
+    const rows = await this.betHistoryRepo
+      .createQueryBuilder('bet')
+      .select('bet.user_address', 'user_address')
+      .addSelect('SUM(CAST(bet.amount AS DECIMAL))', 'total_bet')
+      .where('bet.round_id = :roundId', { roundId: roundIdStr })
+      .andWhere('bet.sperm_id = :spermId', { spermId: winnerId })
+      .groupBy('bet.user_address')
+      .getRawMany<{ user_address: string; total_bet: string }>();
+
+    if (rows.length === 0) {
+      this.logger.warn(`No winners for round_id=${roundIdStr} winning_sperm_id=${winnerId}`);
+      return;
+    }
+
+    const totalPot = BigInt(resolution.totalPot);
+    const snapshot = BigInt(resolution.babyKingJackpotSnapshot);
+    const totalBetsOnWinner = rows.reduce((sum, r) => sum + BigInt(r.total_bet), 0n);
+
+    const toInsert: Partial<DistributionHistory>[] = rows.map((r) => {
+      const userBet = BigInt(r.total_bet);
+      const winningAmount = this.computeWinningAmount(
+        userBet,
+        totalBetsOnWinner,
+        totalPot,
+        resolution.isBabyKingHit,
+        snapshot,
+      );
+      return {
+        round_id: roundIdStr,
+        winning_sperm_id: winnerId,
+        user_address: r.user_address,
+        bet_amount: r.total_bet,
+        winning_amount: String(winningAmount),
+        claim_tx_hash: null,
+      };
+    });
+
+    try {
+      await this.distributionHistoryRepo
+        .createQueryBuilder()
+        .insert()
+        .into(DistributionHistory)
+        .values(toInsert)
+        .orIgnore()
+        .execute();
+      this.logger.log(
+        `Distribution history created: round_id=${roundIdStr} winners=${toInsert.length}`,
+      );
+    } catch (err: any) {
+      this.logger.error(`Failed to create distribution history: ${err?.message}`, err?.stack);
+      throw err;
+    }
+  }
+
+  /** Set claim_tx_hash on the distribution row when user claims winnings. */
+  private async markDistributionClaimed(
+    roundId: string,
+    userAddress: string,
+    winningSpermId: number,
+    claimTxHash: string,
+  ): Promise<void> {
+    const row = await this.distributionHistoryRepo.findOne({
+      where: { round_id: roundId, user_address: userAddress, winning_sperm_id: winningSpermId },
+    });
+    if (!row) {
+      this.logger.warn(
+        `Distribution not found for claim: round_id=${roundId} user=${userAddress} sperm_id=${winningSpermId}`,
+      );
+      return;
+    }
+    row.claim_tx_hash = claimTxHash;
+    await this.distributionHistoryRepo.save(row);
+    this.logger.log(
+      `Distribution claimed: round_id=${roundId} user=${userAddress} tx=${claimTxHash}`,
+    );
   }
 }

@@ -133,7 +133,10 @@ pub mod sperm_race {
 
     pub fn lock_betting(ctx: Context<LockBetting>) -> Result<()> {
         ctx.accounts.round_account.is_locked = true;
-        msg!("Betting locked for round {}", ctx.accounts.round_account.round_id);
+        emit!(LockBettingEvent {
+            round_id: ctx.accounts.round_account.round_id,
+            authority: ctx.accounts.authority.key(),
+        });
         Ok(())
     }
 
@@ -165,10 +168,15 @@ pub mod sperm_race {
             ctx.accounts.round_account.baby_king_hit = true;
             // Capture exactly what is in the vault right now for this round's winners
             ctx.accounts.round_account.baby_king_jackpot_snapshot = ctx.accounts.baby_king_vault.total_accumulated;
-            msg!("👑 BABY KING HIT! Snapshot: {}", ctx.accounts.round_account.baby_king_jackpot_snapshot);
         }
-
-        msg!("Round {} resolved: Winner is sperm {}", ctx.accounts.round_account.round_id, winner_id);
+        
+        emit!(ResolveRoundEvent {
+            round_id: ctx.accounts.round_account.round_id,
+            winner_id,
+            total_pot: ctx.accounts.round_account.total_pot,
+            is_baby_king_hit: ctx.accounts.round_account.baby_king_hit,
+            baby_king_jackpot_snapshot: ctx.accounts.round_account.baby_king_jackpot_snapshot,
+        });
         Ok(())
     }
 
@@ -224,8 +232,13 @@ pub mod sperm_race {
     
         // D. Final Lamport Add to User
         **ctx.accounts.user.to_account_info().try_borrow_mut_lamports()? += total_to_user;
-    
-        msg!("Winnings claimed: {} lamports for Round {}", total_to_user, round_account.round_id);
+
+        emit!(ClaimWinningsEvent {
+            round_id: round_account.round_id,
+            user: ctx.accounts.user.key(),
+            sperm_id,
+            amount_claimed: total_to_user,
+        });
         Ok(())
     }
 
@@ -412,6 +425,29 @@ pub struct PlaceBetEvent {
     pub round_id: u64,
     pub sperm_id: u8,
     pub amount: u64,
+}
+
+#[event]
+pub struct LockBettingEvent {
+    pub round_id: u64,
+    pub authority: Pubkey,
+}
+
+#[event]
+pub struct ResolveRoundEvent {
+    pub round_id: u64,
+    pub winner_id: u8,
+    pub total_pot: u64,
+    pub is_baby_king_hit: bool,
+    pub baby_king_jackpot_snapshot: u64,
+}
+
+#[event]
+pub struct ClaimWinningsEvent {
+    pub round_id: u64,
+    pub user: Pubkey,
+    pub sperm_id: u8,
+    pub amount_claimed: u64,
 }
 
 #[error_code]
