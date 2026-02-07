@@ -30,7 +30,7 @@ export class SolanaService implements OnModuleInit {
       'SOLANA_NETWORK',
       SOLANA_NETWORKS.LOCALNET,
     );
-    
+
     // Get RPC URL from env, with network-specific defaults
     const envRpcUrl = this.configService.get<string>('SOLANA_RPC_URL');
     const rpcUrl = envRpcUrl || this.getDefaultRpcUrl(network);
@@ -69,15 +69,17 @@ export class SolanaService implements OnModuleInit {
     try {
       // Get authority wallet from environment variable
       const authorityWalletEnv = this.configService.get<string>('AUTHORITY_WALLET');
-      
+
       if (!authorityWalletEnv) {
-        this.logger.warn('AUTHORITY_WALLET environment variable not set. Some operations will be unavailable.');
-        throw new Error('No AUTHORITY_WALLET')
+        this.logger.warn(
+          'AUTHORITY_WALLET environment variable not set. Some operations will be unavailable.',
+        );
+        throw new Error('No AUTHORITY_WALLET');
       }
 
       // Parse the wallet data (can be JSON array string or file path)
       let keypairData: number[];
-      
+
       // Check if it's a JSON array string (like [36,235,...])
       if (authorityWalletEnv.trim().startsWith('[')) {
         keypairData = JSON.parse(authorityWalletEnv);
@@ -96,8 +98,10 @@ export class SolanaService implements OnModuleInit {
 
       // Initialize contract client with authority wallet
       this.contractClient.initialize(this.connection, this.authorityWallet, this.programId);
-      
-      this.logger.log(`✅ Authority wallet loaded (Public Key: ${this.authorityWallet.publicKey.toBase58()})`);
+
+      this.logger.log(
+        `✅ Authority wallet loaded (Public Key: ${this.authorityWallet.publicKey.toBase58()})`,
+      );
     } catch (error: any) {
       this.logger.error(`Failed to load authority wallet: ${error.message}`);
       this.logger.warn('Continuing without authority wallet. Some operations will be unavailable.');

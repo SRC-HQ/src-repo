@@ -19,7 +19,7 @@ export class ContractClientService {
     const provider = new AnchorProvider(connection, wallet, {
       commitment: 'confirmed',
     });
-    
+
     // Import the JSON IDL directly from @sperm-race/contracts/idl
     // This uses the monorepo package resolution, similar to importing types
     // Program constructor: (IDL, provider) - programId is in the IDL
@@ -46,10 +46,7 @@ export class ContractClientService {
    * Get global state PDA
    */
   getGlobalStatePda(programId: PublicKey): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [Buffer.from('global_state')],
-      programId,
-    );
+    return PublicKey.findProgramAddressSync([Buffer.from('global_state')], programId);
   }
 
   /**
@@ -72,7 +69,7 @@ export class ContractClientService {
     try {
       const [globalStatePda] = this.getGlobalStatePda(programId);
       const account = await this.getProgram().account.globalState.fetch(globalStatePda);
-      
+
       return {
         authority: account.authority,
         currentRound: account.currentRound,
@@ -81,14 +78,17 @@ export class ContractClientService {
       if (error.message?.includes('Account does not exist')) {
         return null;
       }
-      return null
+      return null;
     }
   }
 
   /**
    * Fetch round account
    */
-  async fetchRoundAccount(programId: PublicKey, roundId: BN): Promise<{
+  async fetchRoundAccount(
+    programId: PublicKey,
+    roundId: BN,
+  ): Promise<{
     roundId: BN;
     hashedSeed: number[];
     winnerId: number;
@@ -100,7 +100,7 @@ export class ContractClientService {
     try {
       const [roundAccountPda] = this.getRoundAccountPda(programId, roundId);
       const account = await this.getProgram().account.roundAccount.fetch(roundAccountPda);
-      
+
       return {
         roundId: account.roundId,
         hashedSeed: Array.from(account.hashedSeed),
@@ -165,7 +165,7 @@ export class ContractClientService {
     const [globalStatePda] = this.getGlobalStatePda(programId);
     const [roundAccountPda] = this.getRoundAccountPda(programId, roundId);
 
-    const x = await program.account.globalState.fetch(globalStatePda)
+    const x = await program.account.globalState.fetch(globalStatePda);
 
     // Convert hashedSeed array to [u8; 32]
     const hashedSeedArray = new Uint8Array(32);
@@ -189,11 +189,7 @@ export class ContractClientService {
   /**
    * Lock betting for the current round
    */
-  async lockBetting(
-    programId: PublicKey,
-    authority: PublicKey,
-    roundId: BN,
-  ): Promise<string> {
+  async lockBetting(programId: PublicKey, authority: PublicKey, roundId: BN): Promise<string> {
     const program = this.getProgram();
     const [globalStatePda] = this.getGlobalStatePda(programId);
     const [roundAccountPda] = this.getRoundAccountPda(programId, roundId);

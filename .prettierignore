@@ -6,3 +6,4 @@ build
 coverage
 packages/contracts/target
 bun.lockb
+docs
