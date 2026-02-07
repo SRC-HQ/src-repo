@@ -4,8 +4,8 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
-  MessageBody,
   ConnectedSocket,
+  MessageBody,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
@@ -16,9 +16,11 @@ import {
   RaceStartEvent,
   PositionsEvent,
   DistributionEvent,
-  PlaceBetPayload,
-  PlaceBetResponse,
   GameStateEvent,
+  PlaceBetResponse,
+  PlaceBetPayload,
+  PoolUpdatedEvent,
+  PoolState,
 } from '../../common';
 
 @WebSocketGateway({
@@ -36,11 +38,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private connectedClients: Map<string, Socket> = new Map();
   private gameService: any; // Will be injected later to avoid circular dependency
-  private bettingService: any;
 
-  setServices(gameService: any, bettingService: any) {
+  setServices(gameService: any) {
     this.gameService = gameService;
-    this.bettingService = bettingService;
   }
 
   handleConnection(client: Socket) {
@@ -81,7 +81,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       // Process the bet
-      const result = await this.bettingService.placeBet({
+      const result = await this.gameService.placeBet({
         roundId: this.gameService.getCurrentRoundId(),
         walletAddress: data.txSignature.substring(0, 44), // TODO: Extract from TX
         spermId: data.spermId,
@@ -109,6 +109,26 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Broadcast Methods (called by GameService)
   // ===========================================
 
+  broadcastPoolUpdated(spermId: number, pools: PoolState[]) {
+    // Calculate total pool
+    const totalPool = pools.reduce((sum, pool) => sum + pool.totalBets, 0);
+
+    // Extract odds
+    const odds = pools.map((pool) => pool.odds);
+
+    const event: PoolUpdatedEvent = {
+      spermId,
+      totalPool,
+      odds,
+      pools,
+    };
+
+    this.logger.log(
+      `Broadcasting pool update for sperm ${spermId}. Total pool: ${totalPool}`,
+    );
+    this.server.emit('pool:updated', event);
+  }
+
   broadcastPhaseChange(data: PhaseChangeEvent) {
     this.logger.log(`Broadcasting phase change: ${data.phase}`);
     this.server.emit('phase:change', data);
@@ -128,33 +148,4 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.emit('distribution:results', data);
   }
 
-  broadcastPoolUpdated(spermId: number, pools: any[]) {
-    const totalPool = pools.reduce((sum, p) => sum + p.totalBets, 0);
-    const odds = this.calculateOdds(pools, totalPool);
-
-    this.server.emit('pool:updated', {
-      spermId,
-      totalPool,
-      odds,
-      pools,
-    });
-  }
-
-  private calculateOdds(pools: any[], totalPool: number): number[] {
-    if (totalPool === 0) {
-      return pools.map(() => 1);
-    }
-
-    const houseFee = 0.15; // 15%
-    const netPool = totalPool * (1 - houseFee);
-
-    return pools.map((pool) => {
-      if (pool.totalBets === 0) return 0;
-      return Math.round((netPool / pool.totalBets) * 100) / 100;
-    });
-  }
-
-  getConnectedClientsCount(): number {
-    return this.connectedClients.size;
-  }
 }

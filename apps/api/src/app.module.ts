@@ -1,27 +1,36 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { GameModule } from './modules/game/game.module';
-import { BettingModule } from './modules/betting/betting.module';
 import { SolanaModule } from './modules/solana/solana.module';
 import { RngModule } from './modules/rng/rng.module';
+import { IndexingModule } from './modules/indexing/indexing.module';
+import { BetHistoryModule } from './modules/bet-history/bet-history.module';
+import { RoundHistoryModule } from './modules/round-history/round-history.module';
 
 @Module({
   imports: [
-    // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
-
-    // Scheduling for game loop
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        url: config.get<string>('DB_URL'),
+        autoLoadEntities: true,
+        synchronize: config.get<string>('NODE_ENV') === 'development', // For prod, use migration
+      }),
+    }),
     ScheduleModule.forRoot(),
-
-    // Feature modules
     GameModule,
-    BettingModule,
     SolanaModule,
     RngModule,
+    IndexingModule,
+    BetHistoryModule,
+    RoundHistoryModule,
   ],
 })
 export class AppModule {}

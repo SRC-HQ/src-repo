@@ -1,5 +1,6 @@
 test-ledger 
 .cursorignore
+keys
 
 # Dependencies
 node_modules

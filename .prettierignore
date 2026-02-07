@@ -5,6 +5,5 @@ build
 .turbo
 coverage
 packages/contracts/target
-packages/anchor-client/src/idl
 bun.lockb
 docs

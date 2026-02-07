@@ -4,7 +4,7 @@ import { BN } from '@coral-xyz/anchor';
 import { SolanaService } from '../solana/solana.service';
 import { RngService } from '../rng/rng.service';
 import { GameGateway } from './game.gateway';
-import { PHASE_DURATIONS, RoundState, SPERM_COUNT } from '../../common';
+import { PHASE_DURATIONS, SPERM_COUNT } from '../../common';
 import * as crypto from 'crypto';
 
 /**
@@ -67,10 +67,15 @@ export class GameContractService implements OnModuleInit {
           this.logger.error('Cannot initialize game: Authority wallet not loaded');
           return;
         }
+        const treasuryPubkey = this.solanaService.getTreasuryWalletPublicKey();
 
-        this.logger.log('Initializing game on-chain...');
         await this.retryTransaction(
-          () => contractClient.initializeGame(programId, authorityWallet.publicKey),
+          () =>
+            contractClient.initializeGame(
+              programId,
+              authorityWallet.publicKey,
+              treasuryPubkey,
+            ),
           'initializeGame',
         );
         this.logger.log('Game initialized successfully');
@@ -81,6 +86,10 @@ export class GameContractService implements OnModuleInit {
         this.currentRoundId = globalState.currentRound.toNumber();
       }
     } catch (error: any) {
+      // Rethrow if TREASURY_WALLET is missing so the app does not start
+      if (error.message?.includes('TREASURY_WALLET')) {
+        throw error;
+      }
       this.logger.error(`Failed to ensure game initialization: ${error.message}`);
     }
   }
@@ -221,7 +230,6 @@ export class GameContractService implements OnModuleInit {
     });
 
     // Stream race animation
-    await this.streamRaceAnimation(seedHex, winnerId);
 
     // Resolve round on-chain (while animation is playing)
     const serverSeedArray = Array.from(this.currentServerSeed!);
@@ -286,31 +294,6 @@ export class GameContractService implements OnModuleInit {
     // Cleanup
     this.currentServerSeed = null;
     this.currentHashedSeed = null;
-  }
-
-  /**
-   * Stream race positions for animation
-   */
-  private async streamRaceAnimation(seed: string, winner: number): Promise<void> {
-    const totalFrames = Math.floor((this.resolutionDuration / 1000) * 30); // 30 FPS
-    const frameDelay = 1000 / 30;
-
-    const allPositions = this.rngService.generateRaceAnimation(
-      seed,
-      SPERM_COUNT,
-      winner,
-      totalFrames,
-    );
-
-    for (let frame = 0; frame < totalFrames; frame++) {
-      const positions = allPositions[frame];
-      this.gateway.broadcastPositions({
-        positions,
-        frame,
-        totalFrames,
-      });
-      await this.sleep(frameDelay);
-    }
   }
 
   /**

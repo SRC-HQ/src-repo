@@ -7,6 +7,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
+  const dbUrl = configService.get<string>('DB_URL');
+  if (!dbUrl?.trim()) {
+    console.error('Fatal: DB_URL is required. Set DB_URL in your .env (e.g. postgresql://user:password@localhost:5432/spermrace)');
+    process.exit(1);
+  }
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
