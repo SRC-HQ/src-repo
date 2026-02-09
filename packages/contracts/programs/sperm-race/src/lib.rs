@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 use sha2::{Sha256, Digest};
 
-declare_id!("4UBRTP1Gm3q9T5CyRRfpU4BP4pC2Fhw8dCe2fnLtDtaL");
+declare_id!("2y2AdrVLKqwcA5GQEC1ULEHac3hH9ck565UBqzPaReJZ");
 
 #[program]
 pub mod sperm_race {

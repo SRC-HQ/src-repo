@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Connection, PublicKey, SystemProgram } from '@solana/web3.js';
 import { Program, AnchorProvider, BN, Wallet, Idl } from '@coral-xyz/anchor';
-import { SpermRace } from '@sperm-race/contracts';
-import * as IDL from '@sperm-race/contracts/idl';
+import { SpermRace } from '@sperm-race/contract-types';
+import * as IDL from '@sperm-race/contract-types/idl';
 
 /**
  * Service that provides a typed Anchor program client for the Sperm Race contract
@@ -19,8 +19,8 @@ export class ContractClientService {
     const provider = new AnchorProvider(connection, wallet, {
       commitment: 'confirmed',
     });
-
-    // Import the JSON IDL directly from @sperm-race/contracts/idl
+    
+    // Import the JSON IDL directly from @sperm-race/contract-types/idl
     // This uses the monorepo package resolution, similar to importing types
     // Program constructor: (IDL, provider) - programId is in the IDL
     // If IDL has different address, we override it

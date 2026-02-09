@@ -1,0 +1,57 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs (we build inside Docker)
+dist
+build
+.next
+out
+.turbo
+*.tsbuildinfo
+
+# Git and IDE
+.git
+.gitignore
+.cursorignore
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# Env (inject at runtime, not in image)
+.env
+.env.*
+!.env.example
+
+# Logs and debug
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage
+.nyc_output
+**/*.test.ts
+**/*.spec.ts
+**/__tests__
+**/test-ledger
+
+# Anchor / Solana – apps use packages/contract-types (committed); exclude heavy target
+packages/contracts/target
+packages/contracts/.anchor
+packages/contracts/test-ledger
+packages/contracts/keys/*.json
+**/*.so
+
+# Misc
+.cache
+*.pid
+*.seed
+README.md
+*.md
+!apps/**/README.md

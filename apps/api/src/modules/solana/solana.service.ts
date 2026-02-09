@@ -28,7 +28,7 @@ export class SolanaService implements OnModuleInit {
   async onModuleInit() {
     const network = this.configService.get<SolanaNetwork>(
       'SOLANA_NETWORK',
-      SOLANA_NETWORKS.LOCALNET,
+      SOLANA_NETWORKS.DEVNET,
     );
 
     // Get RPC URL from env, with network-specific defaults
