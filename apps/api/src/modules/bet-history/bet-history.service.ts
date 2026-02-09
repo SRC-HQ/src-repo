@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PublicKey } from '@solana/web3.js';
 import { BorshEventCoder, EventParser, Idl } from '@coral-xyz/anchor';
-import * as IDL from '@sperm-race/contracts/idl';
+import * as IDL from '@sperm-race/contract-types/idl';
 import { BetHistory } from '../../entities/bet-history.entity';
 import { IndexedBet } from '@/common';
 import { RawInstructionPayload } from '@/common/types/indexing';

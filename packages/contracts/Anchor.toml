@@ -5,16 +5,16 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-sperm_race = "EPLZGLkPntoQswDdtDdgZ3kK1jrQBJC66dgadtyeDEry"
+sperm_race = "2y2AdrVLKqwcA5GQEC1ULEHac3hH9ck565UBqzPaReJZ"
 
 [programs.localnet]
-sperm_race = "4UBRTP1Gm3q9T5CyRRfpU4BP4pC2Fhw8dCe2fnLtDtaL"
+sperm_race = "2y2AdrVLKqwcA5GQEC1ULEHac3hH9ck565UBqzPaReJZ"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

@@ -12,10 +12,10 @@
     "test": "turbo test",
     "clean": "turbo clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "build:contracts": "cd packages/contracts && anchor build",
-    "generate:idl": "bun run build:contracts && bun run --filter @sperm-race/anchor-client generate",
-    "db:migrate": "bun run --filter @sperm-race/api db:migrate",
-    "db:seed": "bun run --filter @sperm-race/api db:seed"
+    "build:contracts": "cd packages/contracts && anchor build && cd ../.. && ./scripts/copy-contract-types.sh",
+    "generate:idl": "yarn build:contracts && yarn workspace @sperm-race/anchor-client generate",
+    "db:migrate": "yarn workspace @sperm-race/api db:migrate",
+    "db:seed": "yarn workspace @sperm-race/api db:seed"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
@@ -23,7 +23,7 @@
     "prettier": "^3.4.2",
     "@types/node": "^22.10.2"
   },
-  "packageManager": "bun@1.1.42",
+  "packageManager": "yarn@1.22.19",
   "engines": {
     "node": ">=20.0.0"
   }

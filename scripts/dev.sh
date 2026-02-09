@@ -8,27 +8,27 @@ set -e
 echo "🏊 Starting Sperm Race Development Environment..."
 echo ""
 
-# Check if bun is installed
-if ! command -v bun &> /dev/null; then
-    echo "❌ Bun is not installed. Please install it: https://bun.sh"
+# Check if yarn is installed
+if ! command -v yarn &> /dev/null; then
+    echo "❌ Yarn is not installed. Please install it: https://classic.yarnpkg.com/lang/en/docs/install/"
     exit 1
 fi
 
 # Check if dependencies are installed
 if [ ! -d "node_modules" ]; then
-    echo "📦 Installing dependencies..."
-    bun install
+    echo "📦 Installing dependencies (yarn workspaces)..."
+    yarn install
 fi
 
-# Build shared packages first
-echo "🔨 Building shared packages..."
-bun run --filter @sperm-race/shared build
+# Build contracts and copy types/IDL to contract-types (when contracts changed)
+echo "🔨 Building contracts and contract-types..."
+yarn build:contracts 2>/dev/null || true
 
-# Start development servers
+# Start development servers (turbo dev)
 echo ""
 echo "🚀 Starting development servers..."
 echo "   Frontend: http://localhost:3000"
 echo "   Backend:  http://localhost:4000"
 echo ""
 
-bun run dev
+yarn dev

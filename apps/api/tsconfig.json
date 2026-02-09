@@ -20,8 +20,8 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["src/*"],
-      "@sperm-race/contracts": ["../../packages/contracts/target/types/sperm_race.ts"],
-      "@sperm-race/contracts/idl": ["../../packages/contracts/target/idl/sperm_race.json"]
+      "@sperm-race/contract-types": ["../../packages/contract-types/src/sperm_race.ts"],
+      "@sperm-race/contract-types/idl": ["../../packages/contract-types/src/idl/sperm_race.json"]
     }
   },
   "include": ["src/**/*"],
