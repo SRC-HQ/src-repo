@@ -277,6 +277,39 @@ pub mod sperm_race {
         Ok(())
     }
 
+    /// Allows a user to reclaim the rent (lamports) locked in their BetRecord PDA.
+    /// This does NOT touch the round pot; it only closes the BetRecord account and
+    /// returns its lamports to the user via Anchor's `close = user` mechanism.
+    pub fn reclaim_bet_rent(ctx: Context<ReclaimBetRent>, sperm_id: u8) -> Result<()> {
+        let round_account = &ctx.accounts.round_account;
+        let bet_record = &ctx.accounts.bet_record;
+
+        // Round must be resolved; before that, bets are still active.
+        require!(round_account.is_resolved, ErrorCode::RoundNotResolved);
+
+        // Basic consistency check: PDA seeds vs stored sperm_id.
+        require_eq!(bet_record.sperm_id, sperm_id, ErrorCode::InvalidSpermId);
+
+        // NOTE: We intentionally do NOT prevent a user from reclaiming rent on a
+        // winning bet before claiming winnings. Doing so would make them unable
+        // to claim later, but only harms that user and not the protocol. The
+        // frontend / backend should enforce the intended flow:
+        // 1) claim_winnings first (for winners)
+        // 2) then reclaim_bet_rent for any remaining BetRecords.
+
+        emit!(RentClaimedEvent {
+            round_id: round_account.round_id,
+            user: ctx.accounts.user.key(),
+            sperm_id,
+            amount: bet_record.amount,
+        });
+
+        // Anchor will automatically transfer all lamports in `bet_record` to `user`
+        // and close the account at the end of the instruction because of `close = user`
+        // in the `ReclaimBetRent` account struct.
+        Ok(())
+    }
+
     /// Reclaims rent from a RoundAccount after all claims are finished
     pub fn close_round_account(ctx: Context<CloseRound>) -> Result<()> {
         let round_account_info = ctx.accounts.round_account.to_account_info();
@@ -385,7 +418,6 @@ pub struct ClaimWinnings<'info> {
     pub baby_king_vault: Account<'info, BabyKingVault>,
     #[account(
         mut,
-        close = user,
         seeds = [b"bet", user.key().as_ref(), round_account.round_id.to_le_bytes().as_ref(), &[sperm_id]],
         bump
     )]
@@ -395,6 +427,22 @@ pub struct ClaimWinnings<'info> {
     /// CHECK: We verify this matches global_state.treasury
     #[account(mut, address = global_state.treasury)]
     pub treasury: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(sperm_id: u8)]
+pub struct ReclaimBetRent<'info> {
+    #[account(mut)]
+    pub round_account: Account<'info, RoundAccount>,
+    #[account(
+        mut,
+        close = user,
+        seeds = [b"bet", user.key().as_ref(), round_account.round_id.to_le_bytes().as_ref(), &[sperm_id]],
+        bump
+    )]
+    pub bet_record: Account<'info, BetRecord>,
+    #[account(mut)]
+    pub user: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -485,6 +533,14 @@ pub struct ClaimWinningsEvent {
     pub user: Pubkey,
     pub sperm_id: u8,
     pub amount_claimed: u64,
+}
+
+#[event]
+pub struct RentClaimedEvent {
+    pub round_id: u64,
+    pub user: Pubkey,
+    pub sperm_id: u8,
+    pub amount: u64,
 }
 
 #[error_code]
