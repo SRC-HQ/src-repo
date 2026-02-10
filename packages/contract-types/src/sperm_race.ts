@@ -378,6 +378,9 @@ export type SpermRace = {
     },
     {
       "name": "resolveRound",
+      "docs": [
+        "Resolve round: entropy = sha256(slot_hash || seed || round_id), winner and baby_king derived on-chain. Server only reveals seed; cannot influence outcome."
+      ],
       "discriminator": [
         165,
         114,
@@ -417,6 +420,7 @@ export type SpermRace = {
         },
         {
           "name": "babyKingVault",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -452,10 +456,6 @@ export type SpermRace = {
       ],
       "args": [
         {
-          "name": "winnerId",
-          "type": "u8"
-        },
-        {
           "name": "serverSeed",
           "type": {
             "array": [
@@ -469,7 +469,8 @@ export type SpermRace = {
     {
       "name": "startRound",
       "docs": [
-        "Start a new round (authority only)"
+        "Start a new round (authority only).",
+        "end_slot: slot at which entropy is fixed (slot hash sampled from SlotHashes sysvar). Must be in the future when called; resolution must happen within ~512 slots after end_slot."
       ],
       "discriminator": [
         144,
@@ -534,6 +535,10 @@ export type SpermRace = {
               32
             ]
           }
+        },
+        {
+          "name": "endSlot",
+          "type": "u64"
         }
       ]
     }
@@ -714,6 +719,11 @@ export type SpermRace = {
       "code": 6010,
       "name": "invalidPayout",
       "msg": "Invalid payout"
+    },
+    {
+      "code": 6011,
+      "name": "invalidSlotHash",
+      "msg": "Invalid slot hash or end_slot not in SlotHashes history"
     }
   ],
   "types": [
@@ -888,6 +898,10 @@ export type SpermRace = {
             }
           },
           {
+            "name": "endSlot",
+            "type": "u64"
+          },
+          {
             "name": "winnerId",
             "type": "u8"
           },
@@ -940,6 +954,10 @@ export type SpermRace = {
                 32
               ]
             }
+          },
+          {
+            "name": "endSlot",
+            "type": "u64"
           },
           {
             "name": "authority",

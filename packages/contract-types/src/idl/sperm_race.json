@@ -372,6 +372,9 @@
     },
     {
       "name": "resolve_round",
+      "docs": [
+        "Resolve round: entropy = sha256(slot_hash || seed || round_id), winner and baby_king derived on-chain. Server only reveals seed; cannot influence outcome."
+      ],
       "discriminator": [
         165,
         114,
@@ -411,6 +414,7 @@
         },
         {
           "name": "baby_king_vault",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -446,10 +450,6 @@
       ],
       "args": [
         {
-          "name": "winner_id",
-          "type": "u8"
-        },
-        {
           "name": "server_seed",
           "type": {
             "array": [
@@ -463,7 +463,8 @@
     {
       "name": "start_round",
       "docs": [
-        "Start a new round (authority only)"
+        "Start a new round (authority only).",
+        "end_slot: slot at which entropy is fixed (slot hash sampled from SlotHashes sysvar). Must be in the future when called; resolution must happen within ~512 slots after end_slot."
       ],
       "discriminator": [
         144,
@@ -528,6 +529,10 @@
               32
             ]
           }
+        },
+        {
+          "name": "end_slot",
+          "type": "u64"
         }
       ]
     }
@@ -708,6 +713,11 @@
       "code": 6010,
       "name": "InvalidPayout",
       "msg": "Invalid payout"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidSlotHash",
+      "msg": "Invalid slot hash or end_slot not in SlotHashes history"
     }
   ],
   "types": [
@@ -882,6 +892,10 @@
             }
           },
           {
+            "name": "end_slot",
+            "type": "u64"
+          },
+          {
             "name": "winner_id",
             "type": "u8"
           },
@@ -934,6 +948,10 @@
                 32
               ]
             }
+          },
+          {
+            "name": "end_slot",
+            "type": "u64"
           },
           {
             "name": "authority",

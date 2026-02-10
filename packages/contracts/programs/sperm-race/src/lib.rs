@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 use sha2::{Sha256, Digest};
+use solana_sysvar::slot_hashes::PodSlotHashes;
 
 declare_id!("2y2AdrVLKqwcA5GQEC1ULEHac3hH9ck565UBqzPaReJZ");
 
@@ -26,14 +27,16 @@ pub mod sperm_race {
         Ok(())
     }
 
-    /// Start a new round (authority only)
+    /// Start a new round (authority only).
+    /// end_slot: slot at which entropy is fixed (slot hash sampled from SlotHashes sysvar). Must be in the future when called; resolution must happen within ~512 slots after end_slot.
     pub fn start_round(
         ctx: Context<StartRound>,
         round_id: u64,
         hashed_seed: [u8; 32],
+        end_slot: u64,
     ) -> Result<()> {
         let global_state = &mut ctx.accounts.global_state;
-        
+
         // Verify round_id is current_round + 1
         let expected_round = global_state
             .current_round
@@ -49,22 +52,24 @@ pub mod sperm_race {
             );
             return Err(ErrorCode::RoundMismatch.into());
         }
-        
+
         // Increment round counter
         global_state.current_round = round_id;
 
         let round_account = &mut ctx.accounts.round_account;
         round_account.round_id = round_id;
         round_account.hashed_seed = hashed_seed;
+        round_account.end_slot = end_slot;
         round_account.winner_id = 0;
         round_account.is_locked = false;
         round_account.total_pot = 0;
         round_account.is_resolved = false;
-        round_account.bets_per_sperm = [0u64; 10]; 
+        round_account.bets_per_sperm = [0u64; 10];
 
         emit!(StartRoundEvent {
             round_id,
             hashed_seed,
+            end_slot,
             authority: ctx.accounts.authority.key(),
         });
 
@@ -140,42 +145,73 @@ pub mod sperm_race {
         Ok(())
     }
 
-    pub fn resolve_round(
-        ctx: Context<ResolveRound>,
-        winner_id: u8,
-        server_seed: [u8; 32],
-    ) -> Result<()> {
-        require!(winner_id < 10, ErrorCode::InvalidSpermId);
+    /// Resolve round: entropy = sha256(slot_hash || seed || round_id), winner and baby_king derived on-chain. Server only reveals seed; cannot influence outcome.
+    pub fn resolve_round(ctx: Context<ResolveRound>, server_seed: [u8; 32]) -> Result<()> {
+        let round_account = &mut ctx.accounts.round_account;
 
-        // Verify seed hash using SHA256
+        // 1. Verify commitment: hash(server_seed) == hashed_seed
         let mut hasher = Sha256::new();
         hasher.update(&server_seed);
         let computed_hash = hasher.finalize();
         require!(
-            computed_hash.as_slice() == ctx.accounts.round_account.hashed_seed,
+            computed_hash.as_slice() == round_account.hashed_seed,
             ErrorCode::InvalidSeed
         );
 
-        ctx.accounts.round_account.winner_id = winner_id;
-        ctx.accounts.round_account.is_resolved = true;
+        // 2. Load slot hash for committed end_slot (PodSlotHashes syscall; no account needed)
+        let end_slot = round_account.end_slot;
+        let slot_hashes = PodSlotHashes::fetch().map_err(|_| ErrorCode::InvalidSlotHash)?;
+        let slot_hash = slot_hashes
+            .get(&end_slot)
+            .map_err(|_| ErrorCode::InvalidSlotHash)?
+            .ok_or(ErrorCode::InvalidSlotHash)?;
 
-        // --- BABY KING PROVABLY FAIR CALCULATION ---
-        let mut seed_bytes = [0u8; 8];
-        seed_bytes.copy_from_slice(&server_seed[0..8]);
-        let entropy = u64::from_le_bytes(seed_bytes);
+        // 3. entropy: value = hash(slot_hash || seed || round_id)
+        let mut preimage = Vec::with_capacity(32 + 32 + 8);
+        preimage.extend_from_slice(slot_hash.as_ref());
+        preimage.extend_from_slice(&server_seed);
+        preimage.extend_from_slice(&round_account.round_id.to_le_bytes());
+        let entropy_hash = Sha256::digest(&preimage);
+        let entropy_bytes = entropy_hash.as_slice();
 
-        if entropy % 650 == 0 {
-            ctx.accounts.round_account.baby_king_hit = true;
-            // Capture exactly what is in the vault right now for this round's winners
-            ctx.accounts.round_account.baby_king_jackpot_snapshot = ctx.accounts.baby_king_vault.total_accumulated;
+        // 4. Round RNG: r = u64[0] ^ u64[1] ^ u64[2] ^ u64[3]
+        let r = u64::from_le_bytes(entropy_bytes[0..8].try_into().unwrap())
+            ^ u64::from_le_bytes(entropy_bytes[8..16].try_into().unwrap())
+            ^ u64::from_le_bytes(entropy_bytes[16..24].try_into().unwrap())
+            ^ u64::from_le_bytes(entropy_bytes[24..32].try_into().unwrap());
+
+        // 5. Winner: 10 sperms (0-9)
+        let winner_id = (r % 10) as u8;
+        round_account.winner_id = winner_id;
+        round_account.is_resolved = true;
+
+        // 6. Baby King jackpot: ~1/650 chance (same ballpark as before), using reverse_bits for independence from winner
+        let baby_king_hit = r.reverse_bits().wrapping_rem(650) == 0;
+        round_account.baby_king_hit = baby_king_hit;
+
+        if baby_king_hit {
+            let snapshot = ctx.accounts.baby_king_vault.total_accumulated;
+            round_account.baby_king_jackpot_snapshot = snapshot;
+            // DoS fix: reserve jackpot in round account now so later rounds cannot drain the vault before this round's claims
+            if snapshot > 0 {
+                let round_info = round_account.to_account_info();
+                let vault_info = ctx.accounts.baby_king_vault.to_account_info();
+                **vault_info.try_borrow_mut_lamports()? -= snapshot;
+                **round_info.try_borrow_mut_lamports()? += snapshot;
+                ctx.accounts.baby_king_vault.total_accumulated = ctx
+                    .accounts
+                    .baby_king_vault
+                    .total_accumulated
+                    .saturating_sub(snapshot);
+            }
         }
-        
+
         emit!(ResolveRoundEvent {
-            round_id: ctx.accounts.round_account.round_id,
+            round_id: round_account.round_id,
             winner_id,
-            total_pot: ctx.accounts.round_account.total_pot,
-            is_baby_king_hit: ctx.accounts.round_account.baby_king_hit,
-            baby_king_jackpot_snapshot: ctx.accounts.round_account.baby_king_jackpot_snapshot,
+            total_pot: round_account.total_pot,
+            is_baby_king_hit: round_account.baby_king_hit,
+            baby_king_jackpot_snapshot: round_account.baby_king_jackpot_snapshot,
         });
         Ok(())
     }
@@ -224,12 +260,11 @@ pub mod sperm_race {
         **ctx.accounts.baby_king_vault.to_account_info().try_borrow_mut_lamports()? += baby_king_tax;
         ctx.accounts.baby_king_vault.total_accumulated = ctx.accounts.baby_king_vault.total_accumulated.checked_add(baby_king_tax).unwrap();
     
-        // C. Handle Jackpot payout from Vault
+        // C. Jackpot paid from round account (reserved at resolve; DoS-safe)
         if jackpot_share > 0 {
-            **ctx.accounts.baby_king_vault.to_account_info().try_borrow_mut_lamports()? -= jackpot_share;
-            ctx.accounts.baby_king_vault.total_accumulated = ctx.accounts.baby_king_vault.total_accumulated.saturating_sub(jackpot_share);
+            **ctx.accounts.round_account.to_account_info().try_borrow_mut_lamports()? -= jackpot_share;
         }
-    
+
         // D. Final Lamport Add to User
         **ctx.accounts.user.to_account_info().try_borrow_mut_lamports()? += total_to_user;
 
@@ -291,7 +326,7 @@ pub struct StartRound<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + 8 + 32 + 1 + 1 + 8 + 1 + (8 * 10) + 1 + 8,
+        space = 8 + 8 + 32 + 8 + 1 + 1 + 8 + 1 + (8 * 10) + 1 + 8,
         seeds = [b"round", round_id.to_le_bytes().as_ref()],
         bump
     )]
@@ -334,7 +369,7 @@ pub struct ResolveRound<'info> {
     pub global_state: Account<'info, GlobalState>,
     #[account(mut, seeds = [b"round", global_state.current_round.to_le_bytes().as_ref()], bump)]
     pub round_account: Account<'info, RoundAccount>,
-    #[account(seeds = [b"baby_king_vault"], bump)]
+    #[account(mut, seeds = [b"baby_king_vault"], bump)]
     pub baby_king_vault: Account<'info, BabyKingVault>,
     pub authority: Signer<'info>,
 }
@@ -395,11 +430,12 @@ pub struct BabyKingVault {
 pub struct RoundAccount {
     pub round_id: u64,
     pub hashed_seed: [u8; 32],
+    pub end_slot: u64,
     pub winner_id: u8,
     pub is_locked: bool,
     pub total_pot: u64,
     pub is_resolved: bool,
-    pub bets_per_sperm: [u64; 10], 
+    pub bets_per_sperm: [u64; 10],
     pub baby_king_hit: bool,
     pub baby_king_jackpot_snapshot: u64,
 }
@@ -416,6 +452,7 @@ pub struct BetRecord {
 pub struct StartRoundEvent {
     pub round_id: u64,
     pub hashed_seed: [u8; 32],
+    pub end_slot: u64,
     pub authority: Pubkey,
 }
 
@@ -463,4 +500,5 @@ pub enum ErrorCode {
     #[msg("Not a winner")] NotAWinner,
     #[msg("Round mismatch")] RoundMismatch,
     #[msg("Invalid payout")] InvalidPayout,
+    #[msg("Invalid slot hash or end_slot not in SlotHashes history")] InvalidSlotHash,
 }

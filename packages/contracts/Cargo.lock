@@ -1262,6 +1262,8 @@ checksum = "b8c3595f95069f3d90f275bb9bd235a1973c4d059028b0a7f81baca2703815db"
 dependencies = [
  "base64 0.22.1",
  "bincode",
+ "bytemuck",
+ "bytemuck_derive",
  "lazy_static",
  "serde",
  "serde_derive",
@@ -1305,6 +1307,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "sha2",
+ "solana-sysvar",
 ]
 
 [[package]]

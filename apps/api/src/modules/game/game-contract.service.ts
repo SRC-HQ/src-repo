@@ -4,7 +4,14 @@ import { BN } from '@coral-xyz/anchor';
 import { SolanaService } from '../solana/solana.service';
 import { RngService } from '../rng/rng.service';
 import { GameGateway } from './game.gateway';
-import { PHASE_DURATIONS, SPERM_COUNT } from '../../common';
+import {
+  DEFAULT_SLOT_MS,
+  END_SLOT_BUFFER,
+  MAX_SLOT_MS,
+  MIN_SLOT_MS,
+  PHASE_DURATIONS,
+  SPERM_COUNT,
+} from '../../common';
 import * as crypto from 'crypto';
 
 /**
@@ -17,6 +24,16 @@ export class GameContractService implements OnModuleInit {
   private currentRoundId: number = 0;
   private currentServerSeed: Buffer | null = null;
   private currentHashedSeed: number[] | null = null;
+  private currentEndSlot: number | null = null;
+  /** Slot at round start (for measuring cluster slot speed). */
+  private currentRoundStartSlot: number | null = null;
+  /** Time at round start (ms) for slot-speed measurement. */
+  private currentRoundStartTime: number | null = null;
+  /**
+   * Observed ms per slot for this cluster. Updated after each resolve; first round uses DEFAULT_SLOT_MS.
+   * Makes end_slot work without config regardless of cluster speed.
+   */
+  private slotMsEstimate: number = DEFAULT_SLOT_MS;
 
   // Phase durations
   private preparationDuration: number;
@@ -143,7 +160,7 @@ export class GameContractService implements OnModuleInit {
   }
 
   /**
-   * Preparation Phase - Start round on-chain, allow betting
+   * Preparation Phase - Start round on-chain with commitment and end_slot 
    */
   private async runPreparationPhase(roundId: number): Promise<void> {
     this.logger.log(`⏳ Preparation phase started (Round ${roundId})`);
@@ -155,11 +172,19 @@ export class GameContractService implements OnModuleInit {
     const hashBuffer = hasher.digest();
     this.currentHashedSeed = Array.from(hashBuffer);
 
+    const currentSlot = await this.solanaService.getCurrentSlot();
+    this.currentRoundStartSlot = currentSlot;
+    this.currentRoundStartTime = Date.now();
+    // end_slot from phase duration using observed cluster slot speed (or conservative default).
+    // end_slot must be in the past when we resolve; buffer covers RPC/clock drift.
+    const slotsDuringPreparation = Math.floor(this.preparationDuration / this.slotMsEstimate);
+    const endSlot = currentSlot + Math.max(1, slotsDuringPreparation - END_SLOT_BUFFER);
+    this.currentEndSlot = endSlot;
+
     this.logger.log(
-      `🔐 Generated hashed seed: ${Buffer.from(hashBuffer).toString('hex').substring(0, 16)}...`,
+      `🔐 Generated hashed seed: ${hashBuffer.toString('hex').substring(0, 16)}... end_slot=${endSlot}`,
     );
 
-    // Start round on-chain
     const authorityWallet = this.solanaService.getAuthorityWallet();
     if (!authorityWallet) {
       throw new Error('Authority wallet not available');
@@ -174,27 +199,26 @@ export class GameContractService implements OnModuleInit {
           authorityWallet.publicKey,
           this.currentHashedSeed!,
           new BN(roundId),
+          new BN(endSlot),
         ),
       'startRound',
     );
 
-    this.logger.log(`✅ Round ${roundId} started on-chain`);
+    this.logger.log(`✅ Round ${roundId} started on-chain (end_slot=${endSlot})`);
 
-    // Broadcast phase change to frontend
     const phaseEndsAt = Date.now() + this.preparationDuration;
     this.gateway.broadcastPhaseChange({
       phase: 'preparation' as any,
       roundId,
       endsAt: phaseEndsAt,
-      commitment: Buffer.from(hashBuffer).toString('hex'),
+      commitment: hashBuffer.toString('hex'),
     });
 
-    // Wait for phase to end
     await this.sleep(this.preparationDuration);
   }
 
   /**
-   * Resolution Phase - Lock betting, determine winner, resolve on-chain
+   * Resolution Phase - Lock betting, derive winner/baby_king
    */
   private async runResolutionPhase(roundId: number): Promise<void> {
     this.logger.log(`🏁 Resolution phase started (Round ${roundId})`);
@@ -207,32 +231,57 @@ export class GameContractService implements OnModuleInit {
     const contractClient = this.solanaService.getContractClient();
     const programId = this.solanaService.getProgramId();
 
-    // Lock betting
     await this.retryTransaction(
       () => contractClient.lockBetting(programId, authorityWallet.publicKey, new BN(roundId)),
       'lockBetting',
     );
     this.logger.log(`🔒 Betting locked for round ${roundId}`);
 
-    // Determine winner using RNG
-    const seedHex = this.currentServerSeed!.toString('hex');
-    const winnerId = this.rngService.determineWinner(seedHex, SPERM_COUNT);
+    const endSlot = this.currentEndSlot;
+    const roundStartSlot = this.currentRoundStartSlot;
+    const roundStartTime = this.currentRoundStartTime;
+    if (endSlot == null) {
+      throw new Error('currentEndSlot not set; cannot derive winner');
+    }
+    const slotHash = await this.solanaService.getSlotHashForSlot(endSlot);
+    // Measure cluster slot speed for next round (no config needed)
+    if (roundStartSlot != null && roundStartTime != null) {
+      const slotNow = await this.solanaService.getCurrentSlot();
+      const slotsElapsed = slotNow - roundStartSlot;
+      const msElapsed = Date.now() - roundStartTime;
+      if (slotsElapsed > 0 && msElapsed > 0) {
+        const observed = msElapsed / slotsElapsed;
+        const clamped = Math.max(MIN_SLOT_MS, Math.min(MAX_SLOT_MS, observed));
+        this.slotMsEstimate = clamped;
+        this.logger.log(
+          `Slot speed: ${observed.toFixed(0)}ms/slot (using ${this.slotMsEstimate.toFixed(0)}ms for next round)`,
+        );
+      }
+    }
+    if (!slotHash || slotHash.length !== 32) {
+      throw new Error(
+        `Slot hash not found for end_slot=${endSlot}. Resolve must happen within ~512 slots after end_slot.`,
+      );
+    }
+    const { winnerId, babyKingHit } = this.rngService.deriveWinnerAndBabyKing(
+      slotHash,
+      this.currentServerSeed!,
+      roundId,
+    );
 
-    this.logger.log(`🎲 Winner determined: Sperm #${winnerId}`);
+    this.logger.log(
+      `🎲 Winner Sperm #${winnerId}, baby_king=${babyKingHit}`,
+    );
 
-    // Broadcast race start to frontend
     const phaseStartTime = Date.now();
     const phaseEndsAt = phaseStartTime + this.resolutionDuration;
     this.gateway.broadcastRaceStart({
       roundId,
       winner: winnerId,
-      seed: seedHex,
+      seed: this.currentServerSeed!.toString('hex'),
       endsAt: phaseEndsAt,
     });
 
-    // Stream race animation
-
-    // Resolve round on-chain (while animation is playing)
     const serverSeedArray = Array.from(this.currentServerSeed!);
     await this.retryTransaction(
       () =>
@@ -240,14 +289,12 @@ export class GameContractService implements OnModuleInit {
           programId,
           authorityWallet.publicKey,
           new BN(roundId),
-          winnerId,
           serverSeedArray,
         ),
       'resolveRound',
     );
-    this.logger.log(`✅ Round ${roundId} resolved on-chain: Winner is sperm #${winnerId}`);
+    this.logger.log(`✅ Round ${roundId} resolved on-chain: Winner sperm #${winnerId}`);
 
-    // Wait for remaining time
     const elapsed = Date.now() - phaseStartTime;
     const remaining = this.resolutionDuration - elapsed;
     if (remaining > 0 && remaining <= this.resolutionDuration) {
@@ -292,9 +339,11 @@ export class GameContractService implements OnModuleInit {
     // Wait for phase to end
     await this.sleep(this.distributionDuration);
 
-    // Cleanup
     this.currentServerSeed = null;
     this.currentHashedSeed = null;
+    this.currentEndSlot = null;
+    this.currentRoundStartSlot = null;
+    this.currentRoundStartTime = null;
   }
 
   /**
@@ -311,7 +360,6 @@ export class GameContractService implements OnModuleInit {
       try {
         this.logger.log(`Attempting ${operation} (attempt ${attempt}/${maxRetries})`);
         const result = await fn();
-        this.logger.log(`✅ ${operation} succeeded`);
         return result;
       } catch (error: any) {
         lastError = error;
@@ -319,7 +367,7 @@ export class GameContractService implements OnModuleInit {
           `❌ ${operation} failed (attempt ${attempt}/${maxRetries}): ${error.message}`,
         );
         if (attempt < maxRetries) {
-          await this.sleep(1000 * attempt); // Exponential backoff
+          await this.sleep(1500 * attempt); // Exponential backoff
         }
       }
     }
@@ -339,12 +387,6 @@ export class GameContractService implements OnModuleInit {
     // Clamp to maximum safe value to prevent TimeoutOverflowWarning
     const MAX_SAFE_TIMEOUT = 2147483647; // 2^31 - 1
     const safeMs = Math.max(0, Math.min(ms, MAX_SAFE_TIMEOUT));
-
-    if (ms !== safeMs) {
-      this.logger.warn(
-        `⚠️ Sleep duration clamped from ${ms}ms to ${safeMs}ms (max safe: ${MAX_SAFE_TIMEOUT}ms)`,
-      );
-    }
 
     return new Promise((resolve) => setTimeout(resolve, safeMs));
   }
