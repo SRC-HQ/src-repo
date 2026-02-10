@@ -153,28 +153,27 @@ export class ContractClientService {
   }
 
   /**
-   * Start a new round
+   * Start a new round with commitment and end_slot .
+   * end_slot: slot at which entropy is fixed (slot hash from SlotHashes sysvar). Resolution must happen within ~512 slots after end_slot.
    */
   async startRound(
     programId: PublicKey,
     authority: PublicKey,
     hashedSeed: number[],
     roundId: BN,
+    endSlot: BN,
   ): Promise<string> {
     const program = this.getProgram();
     const [globalStatePda] = this.getGlobalStatePda(programId);
     const [roundAccountPda] = this.getRoundAccountPda(programId, roundId);
 
-    const x = await program.account.globalState.fetch(globalStatePda);
-
-    // Convert hashedSeed array to [u8; 32]
     const hashedSeedArray = new Uint8Array(32);
     for (let i = 0; i < 32 && i < hashedSeed.length; i++) {
       hashedSeedArray[i] = hashedSeed[i];
     }
 
-    const tx = await program.methods
-      .startRound(roundId, Array.from(hashedSeedArray))
+    const tx = await (program.methods as any)
+      .startRound(roundId, Array.from(hashedSeedArray), endSlot)
       .accounts({
         globalState: globalStatePda,
         roundAccount: roundAccountPda,
@@ -207,30 +206,30 @@ export class ContractClientService {
   }
 
   /**
-   * Resolve the round with winner and server seed
+   * Resolve the round with server seed only. Winner and baby_king are derived on-chain (slot_hash || seed || round_id).
    */
   async resolveRound(
     programId: PublicKey,
     authority: PublicKey,
     roundId: BN,
-    winnerId: number,
     serverSeed: number[],
   ): Promise<string> {
     const program = this.getProgram();
     const [globalStatePda] = this.getGlobalStatePda(programId);
     const [roundAccountPda] = this.getRoundAccountPda(programId, roundId);
+    const [babyKingVaultPda] = this.getBabyKingVaultPda(programId);
 
-    // Convert serverSeed array to [u8; 32]
     const serverSeedArray = new Uint8Array(32);
     for (let i = 0; i < 32 && i < serverSeed.length; i++) {
       serverSeedArray[i] = serverSeed[i];
     }
 
-    const tx = await program.methods
-      .resolveRound(winnerId, Array.from(serverSeedArray))
+    const tx = await (program.methods as any)
+      .resolveRound(Array.from(serverSeedArray))
       .accounts({
         globalState: globalStatePda,
         roundAccount: roundAccountPda,
+        babyKingVault: babyKingVaultPda,
         authority: authority,
       } as any)
       .rpc();

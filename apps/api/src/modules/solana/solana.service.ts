@@ -5,6 +5,9 @@ import { Wallet } from '@coral-xyz/anchor';
 import { COMMITMENT, SolanaNetwork, SOLANA_NETWORKS, DEFAULT_RPC_URLS } from '@/common';
 import { ContractClientService } from './contract-client.service';
 
+/** SlotHashes sysvar: stores recent (slot, hash) entries. */
+const SLOT_HASHES_SYSVAR_ID = new PublicKey('SysvarS1otHashes111111111111111111111111111');
+
 @Injectable()
 export class SolanaService implements OnModuleInit {
   private readonly logger = new Logger(SolanaService.name);
@@ -180,5 +183,33 @@ export class SolanaService implements OnModuleInit {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Fetch slot hash for a given slot from SlotHashes sysvar.
+   * Returns null if slot not in recent history (~512 slots).
+   */
+  async getSlotHashForSlot(slot: number): Promise<Buffer | null> {
+    const accountInfo = await this.connection.getAccountInfo(SLOT_HASHES_SYSVAR_ID);
+    if (!accountInfo?.data || accountInfo.data.length < 8) return null;
+    const data = accountInfo.data as Buffer;
+    const numEntries = data.readBigUInt64LE(0);
+    let offset = 8;
+    const entrySize = 8 + 32;
+    for (let i = 0; i < numEntries && offset + entrySize <= data.length; i++) {
+      const entrySlot = Number(data.readBigUInt64LE(offset));
+      if (entrySlot === slot) {
+        return Buffer.from(data.subarray(offset + 8, offset + 8 + 32));
+      }
+      offset += entrySize;
+    }
+    return null;
+  }
+
+  /**
+   * Get current slot from the cluster (for setting end_slot when starting a round).
+   */
+  async getCurrentSlot(): Promise<number> {
+    return this.connection.getSlot();
   }
 }
