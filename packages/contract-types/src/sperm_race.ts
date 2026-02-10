@@ -377,6 +377,45 @@ export type SpermRace = {
       ]
     },
     {
+      "name": "reclaimBetRent",
+      "docs": [
+        "Allows a user to reclaim the rent (lamports) locked in their BetRecord PDA.",
+        "This does NOT touch the round pot; it only closes the BetRecord account and",
+        "returns its lamports to the user via Anchor's `close = user` mechanism."
+      ],
+      "discriminator": [
+        27,
+        162,
+        160,
+        227,
+        60,
+        25,
+        102,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "roundAccount",
+          "writable": true
+        },
+        {
+          "name": "betRecord",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "spermId",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "resolveRound",
       "docs": [
         "Resolve round: entropy = sha256(slot_hash || seed || round_id), winner and baby_king derived on-chain. Server only reveals seed; cannot influence outcome."
@@ -638,6 +677,19 @@ export type SpermRace = {
       ]
     },
     {
+      "name": "rentClaimedEvent",
+      "discriminator": [
+        166,
+        43,
+        173,
+        249,
+        220,
+        116,
+        144,
+        6
+      ]
+    },
+    {
       "name": "resolveRoundEvent",
       "discriminator": [
         138,
@@ -839,6 +891,30 @@ export type SpermRace = {
           {
             "name": "roundId",
             "type": "u64"
+          },
+          {
+            "name": "spermId",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rentClaimedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "roundId",
+            "type": "u64"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
           },
           {
             "name": "spermId",

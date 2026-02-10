@@ -33,6 +33,13 @@ export class BetHistory {
   @Column({ type: 'varchar', length: 88 })
   tx_hash: string;
 
+  /**
+   * Transaction hash of RentClaimedEvent when user reclaimed the PDA rent.
+   * Null means rent has not been reclaimed yet (eligible for "Bet Cashback").
+   */
+  @Column({ type: 'varchar', length: 88, nullable: true })
+  rent_claim_tx_hash: string | null;
+
   /** Slot when the tx was confirmed (for ordering and dedup) */
   @Column({ type: 'bigint', nullable: true })
   slot: string | null;

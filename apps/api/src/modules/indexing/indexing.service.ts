@@ -90,7 +90,7 @@ export class IndexingService implements OnModuleInit, OnModuleDestroy {
             blockTime,
           };
 
-          if (instructions.has('PlaceBet')) {
+          if (instructions.has('PlaceBet') || instructions.has('ReclaimBetRent')) {
             await this.betHistoryService.handleInstruction(payload);
           }
 

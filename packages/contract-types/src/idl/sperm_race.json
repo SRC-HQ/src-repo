@@ -371,6 +371,45 @@
       ]
     },
     {
+      "name": "reclaim_bet_rent",
+      "docs": [
+        "Allows a user to reclaim the rent (lamports) locked in their BetRecord PDA.",
+        "This does NOT touch the round pot; it only closes the BetRecord account and",
+        "returns its lamports to the user via Anchor's `close = user` mechanism."
+      ],
+      "discriminator": [
+        27,
+        162,
+        160,
+        227,
+        60,
+        25,
+        102,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "round_account",
+          "writable": true
+        },
+        {
+          "name": "bet_record",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "sperm_id",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "resolve_round",
       "docs": [
         "Resolve round: entropy = sha256(slot_hash || seed || round_id), winner and baby_king derived on-chain. Server only reveals seed; cannot influence outcome."
@@ -632,6 +671,19 @@
       ]
     },
     {
+      "name": "RentClaimedEvent",
+      "discriminator": [
+        166,
+        43,
+        173,
+        249,
+        220,
+        116,
+        144,
+        6
+      ]
+    },
+    {
       "name": "ResolveRoundEvent",
       "discriminator": [
         138,
@@ -833,6 +885,30 @@
           {
             "name": "round_id",
             "type": "u64"
+          },
+          {
+            "name": "sperm_id",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RentClaimedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
           },
           {
             "name": "sperm_id",
