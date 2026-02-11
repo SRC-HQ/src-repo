@@ -1,17 +1,23 @@
-import { ConsoleLogger, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BN } from '@coral-xyz/anchor';
 import { SolanaService } from '../solana/solana.service';
 import { RngService } from '../rng/rng.service';
-import { GameGateway } from './game.gateway';
 import {
   DEFAULT_SLOT_MS,
   END_SLOT_BUFFER,
   MAX_SLOT_MS,
   MIN_SLOT_MS,
   PHASE_DURATIONS,
+  GamePhase,
   SPERM_COUNT,
 } from '../../common';
+import { RedisService } from '../redis/redis.service';
+import {
+  REDIS_CHANNELS,
+  REDIS_KEYS,
+  ROUND_KEY_TTL,
+} from '../redis/redis.constants';
 import * as crypto from 'crypto';
 
 /**
@@ -44,7 +50,7 @@ export class GameContractService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly solanaService: SolanaService,
     private readonly rngService: RngService,
-    private readonly gateway: GameGateway,
+    private readonly redisService: RedisService,
   ) {
     this.preparationDuration = this.configService.get<number>(
       'PREPARATION_DURATION_MS',
@@ -206,12 +212,31 @@ export class GameContractService implements OnModuleInit {
 
     this.logger.log(`✅ Round ${roundId} started on-chain (end_slot=${endSlot})`);
 
-    const phaseEndsAt = Date.now() + this.preparationDuration;
-    this.gateway.broadcastPhaseChange({
-      phase: 'preparation' as any,
+    // ─── Redis: set active round state & publish phase change ───
+    const phaseStartedAt = Date.now();
+    const phaseEndsAt = phaseStartedAt + this.preparationDuration;
+    const redis = this.redisService.getClient();
+    const initPipeline = redis.pipeline();
+    initPipeline.set(REDIS_KEYS.ACTIVE_ROUND, String(roundId));
+    initPipeline.set(
+      REDIS_KEYS.roundPhase(roundId),
+      JSON.stringify({
+        phase: GamePhase.PREPARATION,
+        startedAt: phaseStartedAt,
+        endsAt: phaseEndsAt,
+        commitment: hashBuffer.toString('hex'),
+      }),
+    );
+    initPipeline.set(REDIS_KEYS.roundTotalPot(roundId), '0');
+    await initPipeline.exec();
+
+    await this.redisService.publish(REDIS_CHANNELS.PHASE_UPDATE, {
       roundId,
+      phase: GamePhase.PREPARATION,
+      startedAt: phaseStartedAt,
       endsAt: phaseEndsAt,
       commitment: hashBuffer.toString('hex'),
+      previousRoundId: roundId > 1 ? roundId - 1 : null,
     });
 
     await this.sleep(this.preparationDuration);
@@ -236,6 +261,23 @@ export class GameContractService implements OnModuleInit {
       'lockBetting',
     );
     this.logger.log(`🔒 Betting locked for round ${roundId}`);
+
+    // ─── Redis: resolution countdown starts now ───
+    const phaseStartedAt = Date.now();
+    const phaseEndsAt = phaseStartedAt + this.resolutionDuration;
+    {
+      const redis = this.redisService.getClient();
+      await redis.set(
+        REDIS_KEYS.roundPhase(roundId),
+        JSON.stringify({ phase: GamePhase.RESOLUTION, startedAt: phaseStartedAt, endsAt: phaseEndsAt }),
+      );
+      await this.redisService.publish(REDIS_CHANNELS.PHASE_UPDATE, {
+        roundId,
+        phase: GamePhase.RESOLUTION,
+        startedAt: phaseStartedAt,
+        endsAt: phaseEndsAt,
+      });
+    }
 
     const endSlot = this.currentEndSlot;
     const roundStartSlot = this.currentRoundStartSlot;
@@ -273,15 +315,6 @@ export class GameContractService implements OnModuleInit {
       `🎲 Winner Sperm #${winnerId}, baby_king=${babyKingHit}`,
     );
 
-    const phaseStartTime = Date.now();
-    const phaseEndsAt = phaseStartTime + this.resolutionDuration;
-    this.gateway.broadcastRaceStart({
-      roundId,
-      winner: winnerId,
-      seed: this.currentServerSeed!.toString('hex'),
-      endsAt: phaseEndsAt,
-    });
-
     const serverSeedArray = Array.from(this.currentServerSeed!);
     await this.retryTransaction(
       () =>
@@ -295,8 +328,29 @@ export class GameContractService implements OnModuleInit {
     );
     this.logger.log(`✅ Round ${roundId} resolved on-chain: Winner sperm #${winnerId}`);
 
-    const elapsed = Date.now() - phaseStartTime;
-    const remaining = this.resolutionDuration - elapsed;
+    // ─── Redis: publish round result with winner ───
+    {
+      const redis = this.redisService.getClient();
+      const totalPot =
+        (await redis.get(REDIS_KEYS.roundTotalPot(roundId))) || '0';
+      await redis.set(
+        REDIS_KEYS.roundPhase(roundId),
+        JSON.stringify({
+          phase: GamePhase.RESOLUTION,
+          startedAt: phaseStartedAt,
+          endsAt: phaseEndsAt,
+          winner: winnerId,
+        }),
+      );
+      await this.redisService.publish(REDIS_CHANNELS.ROUND_RESULT, {
+        roundId,
+        winnerId,
+        totalPot,
+        isBabyKingHit: babyKingHit,
+      });
+    }
+
+    const remaining = phaseEndsAt - Date.now();
     if (remaining > 0 && remaining <= this.resolutionDuration) {
       await this.sleep(remaining);
     }
@@ -308,31 +362,40 @@ export class GameContractService implements OnModuleInit {
   private async runDistributionPhase(roundId: number): Promise<void> {
     this.logger.log(`💰 Distribution phase started (Round ${roundId})`);
 
-    // Fetch round account to get winner and pot info
-    const contractClient = this.solanaService.getContractClient();
-    const programId = this.solanaService.getProgramId();
-    const roundAccount = await contractClient.fetchRoundAccount(programId, new BN(roundId));
+    const phaseStartedAt = Date.now();
+    const phaseEndsAt = phaseStartedAt + this.distributionDuration;
 
-    if (roundAccount) {
-      const winnerId = roundAccount.winnerId;
-      const totalPot = roundAccount.totalPot.toString();
+    // Read winner + totalPot from Redis (already set during resolution — no RPC needed)
+    const redis = this.redisService.getClient();
+    const [phaseJson, totalPot] = await Promise.all([
+      redis.get(REDIS_KEYS.roundPhase(roundId)),
+      redis.get(REDIS_KEYS.roundTotalPot(roundId)),
+    ]);
 
-      this.logger.log(`Round ${roundId} - Winner: #${winnerId}, Total Pot: ${totalPot} lamports`);
+    const prevPhase = phaseJson ? JSON.parse(phaseJson) : {};
+    const winnerId: number | undefined = prevPhase.winner;
+    const pot = totalPot || '0';
 
-      // Broadcast distribution phase to frontend
-      this.gateway.broadcastDistribution({
+    this.logger.log(`Round ${roundId} - Winner: #${winnerId}, Total Pot: ${pot} lamports`);
+
+    // ─── Redis: publish distribution phase ───
+    {
+      await redis.set(
+        REDIS_KEYS.roundPhase(roundId),
+        JSON.stringify({
+          phase: GamePhase.DISTRIBUTION,
+          startedAt: phaseStartedAt,
+          endsAt: phaseEndsAt,
+          winner: winnerId,
+        }),
+      );
+      await this.redisService.publish(REDIS_CHANNELS.PHASE_UPDATE, {
         roundId,
-        result: {
-          roundId,
-          winnerSpermId: winnerId,
-          totalPool: Number(totalPot),
-          houseFee: Math.floor(Number(totalPot) * 0.15),
-          netPool: Math.floor(Number(totalPot) * 0.85),
-          finalRanking: [], // Would need to calculate from positions
-          seed: this.currentServerSeed!.toString('hex'),
-          commitment: Buffer.from(this.currentHashedSeed!).toString('hex'),
-        },
-        winners: [], // Would need to fetch from chain
+        phase: GamePhase.DISTRIBUTION,
+        startedAt: phaseStartedAt,
+        endsAt: phaseEndsAt,
+        winner: winnerId,
+        totalPot: pot,
       });
     }
 
@@ -344,6 +407,37 @@ export class GameContractService implements OnModuleInit {
     this.currentEndSlot = null;
     this.currentRoundStartSlot = null;
     this.currentRoundStartTime = null;
+
+    // Expire old round Redis keys (5 min grace period)
+    await this.expireRoundKeys(roundId);
+  }
+
+  /**
+   * Set TTL on all Redis keys for a finished round to prevent memory bloat.
+   */
+  private async expireRoundKeys(roundId: number): Promise<void> {
+    try {
+      const redis = this.redisService.getClient();
+      const spermCount = this.configService.get<number>(
+        'SPERM_COUNT',
+        SPERM_COUNT,
+      );
+      const pipeline = redis.pipeline();
+      pipeline.expire(REDIS_KEYS.roundPhase(roundId), ROUND_KEY_TTL);
+      pipeline.expire(REDIS_KEYS.roundTotalPot(roundId), ROUND_KEY_TTL);
+      for (let i = 0; i < spermCount; i++) {
+        pipeline.expire(
+          REDIS_KEYS.spermTotalBets(roundId, i),
+          ROUND_KEY_TTL,
+        );
+        pipeline.expire(REDIS_KEYS.spermBettors(roundId, i), ROUND_KEY_TTL);
+      }
+      await pipeline.exec();
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to expire round ${roundId} Redis keys: ${err.message}`,
+      );
+    }
   }
 
   /**

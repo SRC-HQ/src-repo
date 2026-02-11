@@ -1,30 +1,42 @@
 # =============================================================================
-# Sperm Race - Production (API + Web)
+# Sperm Race - Production (API + Web + Redis)
 # Usage: docker compose up -d
 # Build: docker compose build
 # Env: set via .env or pass at runtime (never commit secrets)
 # =============================================================================
 
 services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-spermrace_redis_secret}
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    # No ports exposed — Redis is internal-only (not accessible from host/internet)
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-spermrace_redis_secret}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     image: sperm-race-api:latest
     restart: unless-stopped
-    env_file: .env
     environment:
       NODE_ENV: production
       API_HOST: "0.0.0.0"
-    # Secrets at runtime: use env_file or Docker secrets, not in image
-    ports:
-      - "${API_PORT:-4000}:4000"
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-spermrace_redis_secret}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - default
+      - dokploy-network
 
   web:
     build:
@@ -38,17 +50,18 @@ services:
         NEXT_PUBLIC_PROGRAM_ID: ${NEXT_PUBLIC_PROGRAM_ID}
     image: sperm-race-web:latest
     restart: unless-stopped
-    env_file: .env
     environment:
       NODE_ENV: production
-    ports:
-      - "${WEB_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+    networks:
+      - default
+      - dokploy-network
+
+volumes:
+  redis-data:
+
+networks:
+  dokploy-network:
+    external: true

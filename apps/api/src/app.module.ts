@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { RedisModule } from './modules/redis/redis.module';
 import { GameModule } from './modules/game/game.module';
+import { SocketModule } from './modules/socket/socket.module';
 import { SolanaModule } from './modules/solana/solana.module';
 import { RngModule } from './modules/rng/rng.module';
 import { IndexingModule } from './modules/indexing/indexing.module';
@@ -26,7 +28,9 @@ import { UserModule } from './modules/user/user.module';
       }),
     }),
     ScheduleModule.forRoot(),
+    RedisModule,
     GameModule,
+    SocketModule,
     SolanaModule,
     RngModule,
     IndexingModule,

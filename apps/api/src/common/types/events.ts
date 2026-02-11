@@ -1,141 +1,112 @@
-import { GamePhase, PoolState, RoundResult } from './game';
+import { GamePhase } from './game';
 
-// ===========================================
-// Server -> Client Events
-// ===========================================
+// ─── Socket Payload Types (lean, scannable objects) ──────────────────
+// Designed to be minimal: no user-sperm bet maps, no bulky arrays.
+// Frontend derives what it needs from these compact payloads.
 
-/**
- * Emitted when game phase changes
- */
-export interface PhaseChangeEvent {
-  phase: GamePhase;
-  roundId: number;
-  /** Unix timestamp (ms) when phase ends */
-  endsAt: number;
-  /** RNG commitment (only in preparation phase) */
-  commitment?: string;
-}
-
-/**
- * Emitted when race starts (resolution phase begins)
- */
-export interface RaceStartEvent {
-  roundId: number;
-  /** Winning sperm ID (pre-determined) */
-  winner: number;
-  /** RNG seed for verification */
-  seed: string;
-  /** Unix timestamp (ms) when race ends */
-  endsAt: number;
-}
-
-/**
- * Emitted during race with position updates
- */
-export interface PositionsEvent {
-  /** Array of positions (0-100) indexed by sperm ID */
-  positions: number[];
-  /** Current frame number */
-  frame: number;
-  /** Total frames in race */
-  totalFrames: number;
-}
-
-/**
- * Emitted when a bet is placed and pool is updated
- */
-export interface PoolUpdatedEvent {
+/** Per-sperm pool snapshot — part of the initial game state */
+export interface SpermPoolState {
   spermId: number;
-  totalPool: number;
-  /** Updated odds for all sperms */
-  odds: number[];
-  /** Updated pools for all sperms */
-  pools: PoolState[];
+  /** Total bets on this sperm (lamports string) */
+  totalBets: string;
+  /** Number of unique bettor wallet addresses */
+  bettorCount: number;
 }
 
 /**
- * Emitted when distribution phase completes
+ * Full game state snapshot — sent once when a client connects.
+ * Contains everything the frontend needs to render the current round.
  */
-export interface DistributionEvent {
+export interface GameStatePayload {
   roundId: number;
-  result: RoundResult;
-  /** List of winners and their payouts */
-  winners: WinnerPayout[];
-}
-
-export interface WinnerPayout {
-  walletAddress: string;
-  betAmount: number;
-  payoutAmount: number;
-  profit: number;
+  phase: GamePhase;
+  /** Unix timestamp (ms) when current phase started (server clock) */
+  phaseStartedAt: number;
+  /** Unix timestamp (ms) when current phase ends (server clock) */
+  phaseEndsAt: number;
+  /** Total pot for the round (lamports string) */
+  totalPot: string;
+  /** Pool state for each sperm (one entry per sperm) */
+  sperms: SpermPoolState[];
+  /** Hashed seed commitment (present during preparation phase) */
+  commitment?: string;
+  /** Winning sperm ID (present after resolution) */
+  winner?: number;
 }
 
 /**
- * Emitted when there's an error
+ * Pool update — emitted each time a new bet is indexed.
+ * Incrementally updates the frontend's pool state for a single sperm.
  */
-export interface ErrorEvent {
+export interface PoolUpdatePayload {
+  roundId: number;
+  spermId: number;
+  /** Updated total bets on this sperm (lamports string) */
+  totalBets: string;
+  /** Updated unique bettor count for this sperm */
+  bettorCount: number;
+  /** Updated round total pot (lamports string) */
+  totalPot: string;
+}
+
+/**
+ * Phase transition — emitted when the game moves between phases.
+ * Frontend uses `endsAt` to render a countdown timer.
+ */
+export interface PhaseUpdatePayload {
+  roundId: number;
+  phase: GamePhase;
+  /** Unix timestamp (ms) when this phase started (server clock) */
+  startedAt: number;
+  /** Unix timestamp (ms) when this phase ends (server clock) */
+  endsAt: number;
+  /** Hashed seed (preparation phase only) */
+  commitment?: string;
+  /** Winner sperm ID (resolution/distribution phases) */
+  winner?: number;
+  /** Total pot snapshot (distribution phase) */
+  totalPot?: string;
+}
+
+/**
+ * Round result — emitted when the on-chain resolve confirms a winner.
+ * Triggers the race animation / winner reveal on the frontend.
+ */
+export interface RoundResultPayload {
+  roundId: number;
+  winnerId: number;
+  totalPot: string;
+  isBabyKingHit: boolean;
+}
+
+/** Error payload */
+export interface ErrorPayload {
   code: string;
   message: string;
 }
 
-/**
- * Current game state sent to newly connected clients
- */
-export interface GameStateEvent {
-  roundId: number;
-  phase: GamePhase;
-  phaseEndsAt: number;
-  pools: PoolState[];
-  totalPool: number;
-  commitment?: string;
-  positions?: number[];
-  winner?: number;
-}
-
-// ===========================================
-// Client -> Server Events
-// ===========================================
-
-/**
- * Client request to place a bet
- */
-export interface PlaceBetPayload {
-  spermId: number;
-  /** Amount in lamports */
-  amount: number;
-  /** Solana transaction signature proving the deposit */
-  txSignature: string;
-}
-
-/**
- * Response after placing a bet
- */
-export interface PlaceBetResponse {
-  success: boolean;
-  betId?: string;
-  error?: string;
-}
-
-// ===========================================
-// Socket.io Type Definitions
-// ===========================================
+// ─── Socket.io type definitions ──────────────────────────────────────
 
 export interface ServerToClientEvents {
-  'game:state': (data: GameStateEvent) => void;
-  'phase:change': (data: PhaseChangeEvent) => void;
-  'race:start': (data: RaceStartEvent) => void;
-  'race:positions': (data: PositionsEvent) => void;
-  'pool:updated': (data: PoolUpdatedEvent) => void;
-  'distribution:results': (data: DistributionEvent) => void;
-  error: (data: ErrorEvent) => void;
+  /** Initial game state snapshot (sent on connect) */
+  'game:state': (data: GameStatePayload) => void;
+  /** Pool update after a new bet is indexed */
+  'pool:update': (data: PoolUpdatePayload) => void;
+  /** Phase transition (preparation → resolution → distribution) */
+  'phase:update': (data: PhaseUpdatePayload) => void;
+  /** Round resolved — winner determined */
+  'round:result': (data: RoundResultPayload) => void;
+  /** Error event */
+  error: (data: ErrorPayload) => void;
 }
 
 export interface ClientToServerEvents {
-  'bet:place': (data: PlaceBetPayload, callback: (response: PlaceBetResponse) => void) => void;
+  // Bets are placed on-chain via Solana transactions.
+  // The indexer catches them and routes through Redis Pub/Sub —
+  // no client→server bet events needed over the socket.
 }
 
 export interface InterServerEvents {
-  // For scaling with multiple server instances
   ping: () => void;
 }
 

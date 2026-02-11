@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GameContractService } from './game-contract.service';
-import { GameGateway } from './game.gateway';
 import { GameRoundSummaryService } from './game-round-summary.service';
 import { GameRoundSummaryController } from './game-round-summary.controller';
 import { RngModule } from '../rng/rng.module';
@@ -11,8 +10,8 @@ import { BetHistory } from '@/entities/bet-history.entity';
 
 @Module({
   imports: [RngModule, SolanaModule, TypeOrmModule.forFeature([RoundHistory, BetHistory])],
-  providers: [GameContractService, GameGateway, GameRoundSummaryService],
+  providers: [GameContractService, GameRoundSummaryService],
   controllers: [GameRoundSummaryController],
-  exports: [GameContractService, GameGateway, GameRoundSummaryService],
+  exports: [GameContractService, GameRoundSummaryService],
 })
 export class GameModule {}
