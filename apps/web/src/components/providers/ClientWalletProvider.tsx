@@ -5,15 +5,20 @@ import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { useMemo } from 'react';
+import { SOLANA_NETWORK_ENV, getRpcEndpoint } from '../../constants/network';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
+const NETWORK_TO_ADAPTER: Record<string, WalletAdapterNetwork> = {
+  localnet: WalletAdapterNetwork.Devnet,
+  devnet: WalletAdapterNetwork.Devnet,
+  'mainnet-beta': WalletAdapterNetwork.Mainnet,
+  mainnet: WalletAdapterNetwork.Mainnet,
+  testnet: WalletAdapterNetwork.Testnet,
+};
+
 export function ClientWalletProvider({ children }: { children: React.ReactNode }) {
-  // Use localnet or devnet
-  const network = WalletAdapterNetwork.Devnet;
-  const endpoint = useMemo(() => {
-    // Use localnet if available, otherwise devnet
-    return process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'http://127.0.0.1:8899';
-  }, []);
+  const network = NETWORK_TO_ADAPTER[SOLANA_NETWORK_ENV] ?? WalletAdapterNetwork.Devnet;
+  const endpoint = useMemo(() => getRpcEndpoint(), []);
 
   const wallets = useMemo(() => [new PhantomWalletAdapter(), new SolflareWalletAdapter()], []);
 

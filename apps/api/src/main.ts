@@ -23,10 +23,14 @@ async function bootstrap() {
     }),
   );
 
-  // CORS
+  // CORS – parse comma-separated origins for multiple allowed frontends
+  const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000');
+  const origins = corsOrigin.split(',').map((o) => o.trim()).filter(Boolean);
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
+    origin: origins.length > 0 ? origins : ['http://localhost:3000'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Redis-backed Socket.io adapter for horizontal scaling

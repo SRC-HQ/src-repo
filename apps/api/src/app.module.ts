@@ -10,6 +10,7 @@ import { RngModule } from './modules/rng/rng.module';
 import { IndexingModule } from './modules/indexing/indexing.module';
 import { BetHistoryModule } from './modules/bet-history/bet-history.module';
 import { RoundHistoryModule } from './modules/round-history/round-history.module';
+import { DistributionHistoryModule } from './modules/distribution-history/distribution-history.module';
 import { UserModule } from './modules/user/user.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { UserModule } from './modules/user/user.module';
     IndexingModule,
     BetHistoryModule,
     RoundHistoryModule,
+    DistributionHistoryModule,
     UserModule,
   ],
 })

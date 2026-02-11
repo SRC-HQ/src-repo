@@ -1,19 +1,54 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useGameStore } from '../../store/gameStore';
+import SolColorIconSvg from '../svgs/SolColorIconSvg';
 import XIcon from '../svgs/XIcon';
 import DiscordIcon from '../svgs/DiscordIcon';
 
 export const Navbar = () => {
-  const { connected, disconnect } = useWallet();
+  const { connection } = useConnection();
+  const { publicKey, connected, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
   const { setWalletConnected, hasWinnings } = useGameStore();
+  const [balance, setBalance] = useState<number | null>(null);
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
   useEffect(() => {
     setWalletConnected(connected);
   }, [connected, setWalletConnected]);
+
+  // Call createOrGetUser when wallet connects
+  useEffect(() => {
+    if (!connected || !publicKey || !API_BASE) return;
+    const address = publicKey.toBase58();
+    fetch(`${API_BASE}/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    }).catch((e) => console.error('[Navbar] createOrGetUser failed:', e));
+  }, [connected, publicKey, API_BASE]);
+
+  useEffect(() => {
+    if (!publicKey || !connection) {
+      setBalance(null);
+      return;
+    }
+    const fetchBalance = async () => {
+      try {
+        const bal = await connection.getBalance(publicKey);
+        setBalance(bal);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 5000);
+    return () => clearInterval(interval);
+  }, [publicKey, connection]);
 
   return (
     <div className="h-16 flex-shrink-0 bg-game-bg border-b border-white/10 flex items-center justify-between px-4 z-50">
@@ -80,8 +115,16 @@ export const Navbar = () => {
           </button>
         )}
 
-        {/* User Avatar / Connect Button */}
-        <div className="flex-shrink-0">
+        {/* Wallet Balance (when connected) & Connect/Disconnect */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {connected && (
+            <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1.5 rounded-full border border-white/10">
+              <SolColorIconSvg className="w-4 h-4" />
+              <span className="text-xs font-mono font-bold text-white">
+                {balance !== null ? (balance / LAMPORTS_PER_SOL).toFixed(4) : '…'} SOL
+              </span>
+            </div>
+          )}
           {connected ? (
             <div
               onClick={disconnect}
@@ -104,3 +147,4 @@ export const Navbar = () => {
     </div>
   );
 };
+

@@ -233,6 +233,7 @@ export class GameContractService implements OnModuleInit {
       startedAt: phaseStartedAt,
       endsAt: phaseEndsAt,
       commitment: hashBuffer.toString('hex'),
+      totalPot: '0',
     });
 
     await this.sleep(this.preparationDuration);

@@ -1,16 +1,20 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
+import { useRaceContract } from '../../hooks/useRaceContract';
 import SpmSwimSprite from '../sprites/SpmSwimSprite';
 import SolColorIconSvg from '../svgs/SolColorIconSvg';
 import { RACER_COLORS } from '../../game/constants';
+import { ClaimWinningsSection } from './ClaimWinningsSection';
+import { TxResultPopover } from '../ui/TxResultPopover';
 
 const LAMPORTS_PER_SOL = 1e9;
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const LeftSidebar = () => {
-  const { publicKey } = useWallet();
+  const { publicKey, connected } = useWallet();
+  const { placeBet, loading, balance } = useRaceContract();
   const mode = useGameStore((state) => state.mode);
   const apiPhase = useGameStore((state) => state.apiPhase);
   const apiPhaseStartedAt = useGameStore((state) => state.apiPhaseStartedAt);
@@ -48,11 +52,36 @@ export const LeftSidebar = () => {
 
   useEffect(() => {
     fetchUserBet();
+    const interval = setInterval(fetchUserBet, 1000);
+    return () => clearInterval(interval);
   }, [fetchUserBet]);
 
   const isManualValid = betAmount > 0 && selectedRacers.length > 0;
   const isAutoValid = betAmount > 0 && selectedRacers.length > 0 && autoMatches > 0;
   const isValid = betMode === 'manual' ? isManualValid : isAutoValid;
+  const canPlaceBet =
+    connected &&
+    apiPhase === 'preparation' &&
+    isValid &&
+    apiRoundId > 0 &&
+    !loading &&
+    betMode === 'manual'; // Auto mode (multi-round) not implemented on-chain yet
+
+  const [txResult, setTxResult] = useState<{ type: 'success'; txHash: string } | { type: 'error'; message: string } | null>(null);
+
+  const handlePlaceBet = useCallback(async () => {
+    if (!canPlaceBet) return;
+    try {
+      setTxResult(null);
+      const tx = await placeBet(apiRoundId, new Set(selectedRacers), betAmount);
+      setTxResult({ type: 'success', txHash: tx });
+      setSelectedRacers([]);
+      setBetAmount(0);
+      fetchUserBet();
+    } catch (err: any) {
+      setTxResult({ type: 'error', message: err?.message ?? 'Transaction failed' });
+    }
+  }, [canPlaceBet, placeBet, apiRoundId, selectedRacers, betAmount, fetchUserBet]);
 
   // Phase label for display
   const phaseLabel = apiPhase === 'preparation' ? 'Betting' : apiPhase === 'resolution' ? 'Racing' : apiPhase === 'distribution' ? 'Results' : '';
@@ -188,6 +217,8 @@ export const LeftSidebar = () => {
           </div>
         </div>
 
+        <ClaimWinningsSection />
+
         {/* Betting Interface */}
         <div className="flex flex-col gap-3 mt-auto">
           <div className="rounded-lg border border-white/10 bg-game-card/10 p-4 relative overflow-hidden">
@@ -210,25 +241,22 @@ export const LeftSidebar = () => {
             {/* Wallet Balance & Quick Amount */}
             <div className="flex justify-between items-center mb-4 relative z-10">
               <div className="flex items-center gap-2 text-xs text-white/60 font-sans">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="w-4 h-4"
-                >
-                  <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />
-                  <path d="M4 6v12c0 1.1.9 2 2 2h14v-4" />
-                  <path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h2v-4Z" />
-                </svg>
-                <span>0 SOL</span>
+                <SolColorIconSvg className="w-4 h-4" />
+                <span>
+                  {publicKey
+                    ? balance !== null
+                      ? `${(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL`
+                      : '… SOL'
+                    : '— SOL'}
+                </span>
               </div>
               <div className="flex gap-1.5">
                 {[1, 0.5, 0.1].map((amount) => (
                   <button
                     key={amount}
                     onClick={() => setBetAmount((prev) => +(prev + amount).toFixed(2))}
-                    className="w-10 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-sans transition-colors flex items-center justify-center"
+                    disabled={!connected}
+                    className="w-10 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-sans transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/5"
                   >
                     +{amount}
                   </button>
@@ -248,7 +276,8 @@ export const LeftSidebar = () => {
                     type="number"
                     value={betAmount || ''}
                     onChange={(e) => setBetAmount(Number(e.target.value))}
-                    className="bg-transparent text-right text-2xl font-bold w-32 focus:outline-none font-sans text-white/90 placeholder:text-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    disabled={!connected}
+                    className="bg-transparent text-right text-2xl font-bold w-32 focus:outline-none font-sans text-white/90 placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="1.0"
                     step="0.1"
                   />
@@ -269,7 +298,8 @@ export const LeftSidebar = () => {
                     type="number"
                     value={betAmount || ''}
                     onChange={(e) => setBetAmount(Number(e.target.value))}
-                    className="bg-transparent text-right text-2xl font-bold w-32 focus:outline-none font-sans text-white/90 placeholder:text-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    disabled={!connected}
+                    className="bg-transparent text-right text-2xl font-bold w-32 focus:outline-none font-sans text-white/90 placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="1.0"
                     step="0.1"
                   />
@@ -318,7 +348,8 @@ export const LeftSidebar = () => {
                     type="number"
                     value={autoMatches || ''}
                     onChange={(e) => setAutoMatches(Number(e.target.value))}
-                    className="bg-transparent text-right text-2xl font-bold w-32 focus:outline-none font-sans text-white/90 placeholder:text-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    disabled={!connected}
+                    className="bg-transparent text-right text-2xl font-bold w-32 focus:outline-none font-sans text-white/90 placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="0"
                   />
                 </div>
@@ -357,15 +388,18 @@ export const LeftSidebar = () => {
             </div>
           </div>
 
+          <TxResultPopover result={txResult} onDismiss={() => setTxResult(null)} />
+
           <button
-            disabled={!isValid}
+            onClick={handlePlaceBet}
+            disabled={!canPlaceBet}
             className={`w-full py-3 font-bold font-sans rounded-full transition-all ${
-              isValid
+              canPlaceBet
                 ? 'bg-primary hover:bg-primary/90 text-black'
                 : 'bg-white/10 text-white/40 cursor-not-allowed'
             }`}
           >
-            {betMode === 'manual' ? 'Place Bet' : 'Start Auto'}
+            {loading ? 'Processing...' : betMode === 'manual' ? 'Place Bet' : 'Start Auto'}
           </button>
         </div>
       </div>

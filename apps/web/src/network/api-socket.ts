@@ -67,16 +67,25 @@ class ApiGameSocket {
 
     this.socket.on('phase:update', (data: PhaseUpdatePayload) => {
       console.log('[ApiGameSocket] phase:update', data.phase, data.roundId);
-      useGameStore.getState().setApiGameState({
+      const store = useGameStore.getState();
+      const isNewRound = data.roundId !== store.apiRoundId;
+      // Fallback to '0' when totalPot missing (avoids stale pot from previous round)
+      const totalPot = data.totalPot ?? (data.phase === 'preparation' ? '0' : store.apiTotalPot);
+      store.setApiGameState({
         phase: data.phase,
         roundId: data.roundId,
         phaseStartedAt: data.startedAt,
         phaseEndsAt: data.endsAt,
-        totalPot: data.totalPot ?? useGameStore.getState().apiTotalPot,
+        totalPot,
       });
+      if (isNewRound) {
+        store.resetApiStateForNewRound();
+      }
     });
 
     this.socket.on('pool:update', (data: PoolUpdatePayload) => {
+      // Ignore stale pool updates from previous round
+      if (data.roundId !== useGameStore.getState().apiRoundId) return;
       useGameStore.getState().setApiTotalPot(data.totalPot);
     });
 
