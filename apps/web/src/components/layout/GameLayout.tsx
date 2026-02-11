@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { Navbar } from './Navbar';
 import { LeftSidebar } from './LeftSidebar';
@@ -7,6 +9,7 @@ import { RightSidebar } from './RightSidebar';
 import { GameHistory } from './GameHistory';
 import { DebugPanel } from '../debug/DebugPanel';
 import { useGameStore } from '../../store/gameStore';
+import { apiGameSocket } from '../../network/api-socket';
 
 interface GameLayoutProps {
   children: React.ReactNode;
@@ -14,6 +17,11 @@ interface GameLayoutProps {
 
 export const GameLayout = ({ children }: GameLayoutProps) => {
   const mode = useGameStore((state) => state.mode);
+
+  useEffect(() => {
+    apiGameSocket.connect();
+    return () => apiGameSocket.disconnect();
+  }, []);
 
   return (
     <div className="fixed inset-0 flex flex-col bg-game-bg text-white overflow-hidden font-sans">
