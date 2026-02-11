@@ -52,17 +52,15 @@ export class GameContractService implements OnModuleInit {
     private readonly rngService: RngService,
     private readonly redisService: RedisService,
   ) {
-    this.preparationDuration = this.configService.get<number>(
-      'PREPARATION_DURATION_MS',
-      PHASE_DURATIONS.PREPARATION,
+    // Note: configService.get() returns strings from .env — must coerce to number
+    this.preparationDuration = Number(
+      this.configService.get('PREPARATION_DURATION_MS', PHASE_DURATIONS.PREPARATION),
     );
-    this.resolutionDuration = this.configService.get<number>(
-      'RESOLUTION_DURATION_MS',
-      PHASE_DURATIONS.RESOLUTION,
+    this.resolutionDuration = Number(
+      this.configService.get('RESOLUTION_DURATION_MS', PHASE_DURATIONS.RESOLUTION),
     );
-    this.distributionDuration = this.configService.get<number>(
-      'DISTRIBUTION_DURATION_MS',
-      PHASE_DURATIONS.DISTRIBUTION,
+    this.distributionDuration = Number(
+      this.configService.get('DISTRIBUTION_DURATION_MS', PHASE_DURATIONS.DISTRIBUTION),
     );
   }
 
@@ -236,7 +234,6 @@ export class GameContractService implements OnModuleInit {
       startedAt: phaseStartedAt,
       endsAt: phaseEndsAt,
       commitment: hashBuffer.toString('hex'),
-      previousRoundId: roundId > 1 ? roundId - 1 : null,
     });
 
     await this.sleep(this.preparationDuration);
