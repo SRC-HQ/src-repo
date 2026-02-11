@@ -1,7 +1,8 @@
 # =============================================================================
 # Sperm Race API - Production Dockerfile
 # Build from repo root: docker build -f apps/api/Dockerfile .
-# Uses Node 24 + Yarn for install/build, Node for runtime. With turbo prune.
+# Optimizations: npm prune --production (~150–200MB), minimal runner deps.
+# Optional: use node:24-alpine for runner if no native deps (pg/Anchor may need glibc).
 # =============================================================================
 
 FROM node:24-bookworm-slim AS base
@@ -30,19 +31,20 @@ RUN corepack enable && corepack prepare yarn@1.22.19 --activate && yarn install 
 COPY --from=prepare /app/out/full/ .
 WORKDIR /app/apps/api
 RUN yarn build
+# Remove devDependencies from node_modules (saves ~150–200MB in final image)
+WORKDIR /app
+RUN npm prune --production
 
 # -----------------------------------------------------------------------------
-# Runner: minimal Node image, runtime env via env file / secrets
+# Runner: minimal Node image (bookworm-slim for glibc; needed for pg/Anchor native deps)
 # -----------------------------------------------------------------------------
 FROM node:24-bookworm-slim AS runner
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nestjs
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nestjs
 USER nestjs
 WORKDIR /app
-# Runtime deps + workspaces (contract-types) + compiled dist
+# Runtime deps only (devDependencies pruned) + workspaces + compiled dist
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/packages/contract-types ./packages/contract-types
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist

@@ -1,6 +1,8 @@
 # =============================================================================
 # Sperm Race Web (Next.js) - Production Dockerfile
 # Build from repo root: docker build -f apps/web/Dockerfile .
+# On Apple Silicon, if yarn install fails on @next/swc-*, use:
+#   docker build --platform linux/amd64 -f apps/web/Dockerfile .
 # Uses Node 24 + Yarn for install/build, Node for runtime. With turbo prune.
 # =============================================================================
 
@@ -24,7 +26,11 @@ RUN turbo prune @sperm-race/web --docker
 FROM base AS builder
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/yarn.lock ./yarn.lock
-RUN corepack enable && corepack prepare yarn@1.22.19 --activate && yarn install --frozen-lockfile
+# Use a writable cache dir and clean before install to avoid ENOENT on @next/swc-* optional deps
+ENV YARN_CACHE_FOLDER=/tmp/yarn-cache
+RUN corepack enable && corepack prepare yarn@1.22.19 --activate && \
+    rm -rf /tmp/yarn-cache && \
+    yarn install --frozen-lockfile --network-timeout 100000
 COPY --from=prepare /app/out/full/ .
 
 # Build Next.js app (respects NEXT_PUBLIC_* envs passed as build args)

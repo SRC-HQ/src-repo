@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone', // Required for Docker: produces .next/standalone with server.js
   reactStrictMode: true,
   transpilePackages: [],
   webpack: (config) => {
