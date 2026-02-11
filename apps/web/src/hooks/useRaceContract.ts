@@ -2,16 +2,18 @@ import { useEffect, useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
 import { Program, AnchorProvider, BN, Idl } from '@coral-xyz/anchor';
-// import { SpermRace } from '@sperm-race/contracts';
-// import * as IDL from '@sperm-race/contracts/idl';
+import { SpermRace } from '@sperm-race/contract-types';
+import * as IDL from '@sperm-race/contract-types/idl';
 
-const PROGRAM_ID = new PublicKey('HntbeNBqUZuFpXXeQNKa2XFZKYS2gnUfUR1osCgS2S1E');
+const PROGRAM_ID = new PublicKey(
+  process.env.NEXT_PUBLIC_PROGRAM_ID ?? '2y2AdrVLKqwcA5GQEC1ULEHac3hH9ck565UBqzPaReJZ',
+);
 
 export const useRaceContract = () => {
   const { connection } = useConnection();
   const { publicKey, wallet } = useWallet();
 
-  const [program, setProgram] = useState<Program<Idl> | null>(null);
+  const [program, setProgram] = useState<Program<SpermRace> | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +24,8 @@ export const useRaceContract = () => {
         commitment: 'confirmed',
       });
 
-      const idlWithProgramId = { address: PROGRAM_ID.toBase58() };
-      // Note: We're casting to Idl because we don't have the JSON file imported yet
-      // In a real scenario, we should import the IDL JSON
-      const programInstance = new Program<Idl>(idlWithProgramId as Idl, provider);
+      const idlWithProgramId = { ...IDL, address: PROGRAM_ID.toBase58() };
+      const programInstance = new Program<SpermRace>(idlWithProgramId as Idl, provider);
       setProgram(programInstance);
     }
   }, [connection, wallet]);
@@ -72,6 +72,22 @@ export const useRaceContract = () => {
     },
     [],
   );
+
+  const getGlobalStatePda = useCallback((): PublicKey => {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('global_state')],
+      PROGRAM_ID,
+    );
+    return pda;
+  }, []);
+
+  const getBabyKingVaultPda = useCallback((): PublicKey => {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('baby_king_vault')],
+      PROGRAM_ID,
+    );
+    return pda;
+  }, []);
 
   const placeBet = useCallback(
     async (roundId: number, selectedSperms: Set<number>, amountPerSperm: number) => {
@@ -127,14 +143,22 @@ export const useRaceContract = () => {
 
       try {
         const roundAccountPda = getRoundAccountPda(roundId);
+        const globalStatePda = getGlobalStatePda();
+        const babyKingVaultPda = getBabyKingVaultPda();
         const betRecordPda = getBetRecordPda(publicKey, roundId, spermId);
 
+        const globalState = await program.account.globalState.fetch(globalStatePda);
+        const treasury = globalState.treasury as PublicKey;
+
         const tx = await program.methods
-          .claimWinnings()
+          .claimWinnings(spermId)
           .accounts({
             roundAccount: roundAccountPda,
+            globalState: globalStatePda,
+            babyKingVault: babyKingVaultPda,
             betRecord: betRecordPda,
             user: publicKey,
+            treasury,
           } as any)
           .rpc();
 
@@ -151,13 +175,68 @@ export const useRaceContract = () => {
         throw err;
       }
     },
-    [publicKey, program, connection, getRoundAccountPda, getBetRecordPda],
+    [publicKey, program, connection, getRoundAccountPda, getBetRecordPda, getGlobalStatePda, getBabyKingVaultPda],
+  );
+
+  /** Batch claim multiple winnings in a single transaction */
+  const batchClaimWinnings = useCallback(
+    async (claims: { roundId: number; spermId: number }[]) => {
+      if (!publicKey || !program) {
+        throw new Error('Wallet not connected');
+      }
+      if (claims.length === 0) {
+        throw new Error('No claims to process');
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const globalStatePda = getGlobalStatePda();
+        const babyKingVaultPda = getBabyKingVaultPda();
+        const globalState = await program.account.globalState.fetch(globalStatePda);
+        const treasury = globalState.treasury as PublicKey;
+
+        const transaction = new Transaction();
+        for (const { roundId, spermId } of claims) {
+          const roundAccountPda = getRoundAccountPda(roundId);
+          const betRecordPda = getBetRecordPda(publicKey, roundId, spermId);
+
+          const ix = await program.methods
+            .claimWinnings(spermId)
+            .accounts({
+              roundAccount: roundAccountPda,
+              globalState: globalStatePda,
+              babyKingVault: babyKingVaultPda,
+              betRecord: betRecordPda,
+              user: publicKey,
+              treasury,
+            } as any)
+            .instruction();
+
+          transaction.add(ix);
+        }
+
+        const tx = await program.provider.sendAndConfirm!(transaction);
+        const newBalance = await connection.getBalance(publicKey);
+        setBalance(newBalance);
+        setLoading(false);
+        return tx;
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || 'Claim failed');
+        setLoading(false);
+        throw err;
+      }
+    },
+    [publicKey, program, connection, getRoundAccountPda, getBetRecordPda, getGlobalStatePda, getBabyKingVaultPda],
   );
 
   return {
     balance,
     placeBet,
     claimWinnings,
+    batchClaimWinnings,
     loading,
     error,
     program,

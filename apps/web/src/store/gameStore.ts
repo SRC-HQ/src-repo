@@ -21,6 +21,7 @@ interface GameStore extends GameState {
   setMode: (mode: GameMode) => void;
   setApiGameState: (state: ApiGameState) => void;
   setApiTotalPot: (totalPot: string) => void;
+  resetApiStateForNewRound: () => void;
   setWalletConnected: (connected: boolean) => void;
   setHasWinnings: (hasWinnings: boolean) => void;
 }
@@ -84,6 +85,12 @@ export const useGameStore = create<GameStore>((set) => ({
       mode: PHASE_TO_MODE[phase] ?? 'PREPARATION',
     }),
   setApiTotalPot: (totalPot) => set({ apiTotalPot: totalPot }),
+  resetApiStateForNewRound: () =>
+    set({
+      apiTotalPot: '0',
+      tick: 0,
+      racers: {},
+    }),
   setWalletConnected: (connected: boolean) => set({ isWalletConnected: connected }),
   setHasWinnings: (hasWinnings: boolean) => set({ hasWinnings }),
 }));
