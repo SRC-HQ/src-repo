@@ -37,6 +37,11 @@ class ApiGameSocket {
   private socket: Socket | null = null;
 
   connect() {
+    console.log('[ENV] NEXT_PUBLIC_PROGRAM_ID:', process.env.NEXT_PUBLIC_PROGRAM_ID);
+    console.log('[ENV] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+    console.log('[ENV] NEXT_PUBLIC_WS_URL:', process.env.NEXT_PUBLIC_WS_URL);
+    console.log('[ENV] Resolved API_SOCKET_URL:', API_SOCKET_URL);
+
     if (!API_SOCKET_URL || API_SOCKET_URL === 'MOCK') return;
 
     const base = API_SOCKET_URL.replace(/\/$/, '');

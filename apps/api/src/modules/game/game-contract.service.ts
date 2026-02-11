@@ -89,7 +89,6 @@ export class GameContractService implements OnModuleInit {
           return;
         }
         const treasuryPubkey = this.solanaService.getTreasuryWalletPublicKey();
-        console.log(authorityWallet.publicKey, treasuryPubkey)
 
         await this.retryTransaction(
           () =>
