@@ -8,6 +8,8 @@ import * as IDL from '@sperm-race/contract-types/idl';
 import { BetHistory } from '../../entities/bet-history.entity';
 import { IndexedBet } from '@/common';
 import { RawInstructionPayload } from '@/common/types/indexing';
+import { RedisService } from '../redis/redis.service';
+import { REDIS_CHANNELS, REDIS_KEYS } from '../redis/redis.constants';
 
 /** Decoded PlaceBetEvent from chain (Anchor BN/PublicKey). */
 interface PlaceBetEventData {
@@ -34,6 +36,7 @@ export class BetHistoryService {
     private readonly configService: ConfigService,
     @InjectRepository(BetHistory)
     private readonly betHistoryRepo: Repository<BetHistory>,
+    private readonly redisService: RedisService,
   ) {
     const programId = this.configService.get<string>('PROGRAM_ID');
     if (programId) {
@@ -114,6 +117,10 @@ export class BetHistoryService {
           timestamp: bet.blockTime != null ? new Date(bet.blockTime * 1000) : null,
         }),
       );
+
+      // ─── Redis: update pool state & publish (only on successful save, not duplicate) ───
+      await this.publishPoolUpdate(bet);
+
       this.logger.log(
         `Bet recorded: tx=${bet.txHash} user=${bet.userAddress} round=${bet.roundId} sperm=${bet.spermId} amount=${bet.amount} lamports`,
       );
@@ -124,6 +131,48 @@ export class BetHistoryService {
       }
       this.logger.error(`Failed to record bet: ${err?.message}`, err?.stack);
       throw err;
+    }
+  }
+
+  /**
+   * Update Redis pool counters and publish a pool update event.
+   * This is the "stealth" path: the DB write is done, now notify live clients
+   * via Redis Pub/Sub without touching the database again.
+   */
+  private async publishPoolUpdate(bet: IndexedBet): Promise<void> {
+    try {
+      const redis = this.redisService.getClient();
+
+      // Atomic increment + set add (pipeline = single round-trip)
+      const pipeline = redis.pipeline();
+      pipeline.incrby(REDIS_KEYS.roundTotalPot(bet.roundId), Number(bet.amount));
+      pipeline.incrby(
+        REDIS_KEYS.spermTotalBets(bet.roundId, bet.spermId),
+        Number(bet.amount),
+      );
+      pipeline.sadd(
+        REDIS_KEYS.spermBettors(bet.roundId, bet.spermId),
+        bet.userAddress,
+      );
+      await pipeline.exec();
+
+      // Read updated values for the event payload
+      const [totalPot, totalBets, bettorCount] = await Promise.all([
+        redis.get(REDIS_KEYS.roundTotalPot(bet.roundId)),
+        redis.get(REDIS_KEYS.spermTotalBets(bet.roundId, bet.spermId)),
+        redis.scard(REDIS_KEYS.spermBettors(bet.roundId, bet.spermId)),
+      ]);
+
+      await this.redisService.publish(REDIS_CHANNELS.POOL_UPDATE, {
+        roundId: bet.roundId,
+        spermId: bet.spermId,
+        totalBets: totalBets || '0',
+        bettorCount,
+        totalPot: totalPot || '0',
+      });
+    } catch (err: any) {
+      // Redis failure should never block the DB-recorded bet
+      this.logger.error(`Failed to publish pool update: ${err?.message}`);
     }
   }
 
