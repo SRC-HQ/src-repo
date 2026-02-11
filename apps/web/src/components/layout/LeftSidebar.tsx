@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
 import SpmSwimSprite from '../sprites/SpmSwimSprite';
 import SolColorIconSvg from '../svgs/SolColorIconSvg';
@@ -6,7 +7,10 @@ import { RACER_COLORS } from '../../game/constants';
 
 const LAMPORTS_PER_SOL = 1e9;
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+
 export const LeftSidebar = () => {
+  const { publicKey } = useWallet();
   const mode = useGameStore((state) => state.mode);
   const apiPhase = useGameStore((state) => state.apiPhase);
   const apiPhaseStartedAt = useGameStore((state) => state.apiPhaseStartedAt);
@@ -18,10 +22,33 @@ export const LeftSidebar = () => {
   const [timeLeft, setTimeLeft] = useState<string>('00:00');
   const [betMode, setBetMode] = useState<'manual' | 'auto'>('manual');
   const [selectedRacers, setSelectedRacers] = useState<number[]>([]);
+  const [userTotalBet, setUserTotalBet] = useState<string>('0');
 
   // Auto mode states
   const [autoMatches, setAutoMatches] = useState<number>(0);
   const [betAmount, setBetAmount] = useState<number>(0);
+
+  // Fetch user bet summary when round or wallet changes
+  const fetchUserBet = useCallback(async () => {
+    if (!apiRoundId || !publicKey || !API_BASE) {
+      setUserTotalBet('0');
+      return;
+    }
+    try {
+      const res = await fetch(
+        `${API_BASE}/game/round/${apiRoundId}/user-summary/${publicKey.toBase58()}`,
+      );
+      if (!res.ok) { setUserTotalBet('0'); return; }
+      const data = await res.json();
+      setUserTotalBet(data.total_bet ?? '0');
+    } catch {
+      setUserTotalBet('0');
+    }
+  }, [apiRoundId, publicKey]);
+
+  useEffect(() => {
+    fetchUserBet();
+  }, [fetchUserBet]);
 
   const isManualValid = betAmount > 0 && selectedRacers.length > 0;
   const isAutoValid = betAmount > 0 && selectedRacers.length > 0 && autoMatches > 0;
@@ -88,15 +115,18 @@ export const LeftSidebar = () => {
             <span className="text-[10px] font-sans tracking-wider text-white/60">Prize Pool</span>
           </div>
 
-          {/* Round */}
+          {/* Your Bet */}
           <div className="group rounded-lg border border-white/10 bg-game-card/10 p-3 flex flex-col items-center justify-center">
-            <div className="h-6 flex items-center mb-1">
+            <div className="flex items-center gap-1 mb-1">
+              <SolColorIconSvg className="w-4 h-4" />
               <span className="font-bold text-base font-sans">
-                {apiRoundId > 0 ? `#${apiRoundId}` : '--'}
+                {publicKey
+                  ? (Number(userTotalBet) / LAMPORTS_PER_SOL).toFixed(4)
+                  : '--'}
               </span>
             </div>
             <span className="text-[10px] font-sans tracking-wider text-white/60">
-              Round
+              Your Bet
             </span>
           </div>
         </div>

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { GameMode } from '../../game/types/GameState';
-import { gameSocket } from '../../network/socket';
 import { useGameStore } from '../../store/gameStore';
 
 export const DebugPanel = () => {
@@ -8,7 +7,8 @@ export const DebugPanel = () => {
   const { isWalletConnected, hasWinnings, setWalletConnected, setHasWinnings } = useGameStore();
 
   const setMode = (mode: GameMode) => {
-    gameSocket.debugSetMode(mode);
+    // Directly set store mode for debug — bypasses socket
+    useGameStore.setState({ mode });
   };
 
   if (!isOpen) {
@@ -81,8 +81,7 @@ export const DebugPanel = () => {
 
         <div className="mt-4 pt-4 border-t border-gray-800">
           <p className="text-[10px] text-gray-600">
-            Note: Changing mode manually overrides the simulation state and saves it to local
-            storage.
+            Note: Debug controls override the current mode directly.
           </p>
         </div>
       </div>
