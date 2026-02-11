@@ -30,7 +30,9 @@ const GAME_ROOM = 'game:live';
   transports: ['websocket'],
   namespace: '/game',
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',')
+      : ['http://localhost:3000', 'https://app.spermrace.club', 'https://api.spermrace.club'],
     credentials: true,
   },
 })

@@ -1,9 +1,20 @@
 export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 export const INTERPOLATION_FACTOR = 0.15;
-// Default to 'MOCK' for demonstration purposes so you can see the loop running immediately.
-// Set NEXT_PUBLIC_WS_URL to your actual server URL (e.g., ws://localhost:3000/game) to connect to backend.
-export const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || 'MOCK';
+// Game simulation uses a raw WebSocket (SYNC_STATE, TICK, MODE_CHANGE) - different from API.
+// The API uses Socket.io, so keep MOCK unless you have a separate raw WS game server.
+export const WEBSOCKET_URL = process.env.NEXT_PUBLIC_GAME_WS_URL || 'MOCK';
+
+/**
+ * Socket.io URL for API game state (phase, countdown, pool).
+ * Format per WEBSOCKET_ARCHITECTURE.md: ws://host:4000/game (or wss:// for production).
+ * Prefer NEXT_PUBLIC_WS_URL; fallback: derive from NEXT_PUBLIC_API_URL.
+ */
+export const API_SOCKET_URL =
+  process.env.NEXT_PUBLIC_WS_URL ||
+  (process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/^http/, 'ws')}/game`
+    : '');
 
 // Define 10 distinct colors for racers
 export const RACER_COLORS = [

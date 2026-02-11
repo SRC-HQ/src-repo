@@ -50,7 +50,6 @@ export class SceneManager {
     }
 
     this.currentMode = mode;
-    console.log(`Switching scene to ${mode}`);
 
     switch (mode) {
       case 'PREPARATION':

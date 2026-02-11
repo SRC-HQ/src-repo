@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import Image from 'next/image';
 import SpmSwimSprite from '../sprites/SpmSwimSprite';
 import SolColorIconSvg from '../svgs/SolColorIconSvg';
 import { RACER_COLORS } from '../../game/constants';
 
+const LAMPORTS_PER_SOL = 1e9;
+
 export const LeftSidebar = () => {
-  const startTime = useGameStore((state) => state.startTime);
   const mode = useGameStore((state) => state.mode);
+  const apiPhase = useGameStore((state) => state.apiPhase);
+  const apiPhaseStartedAt = useGameStore((state) => state.apiPhaseStartedAt);
+  const apiPhaseEndsAt = useGameStore((state) => state.apiPhaseEndsAt);
+  const apiTotalPot = useGameStore((state) => state.apiTotalPot);
+  const apiRoundId = useGameStore((state) => state.apiRoundId);
+  const hasApiState = apiPhaseEndsAt > 0;
 
   const [timeLeft, setTimeLeft] = useState<string>('00:00');
   const [betMode, setBetMode] = useState<'manual' | 'auto'>('manual');
@@ -21,26 +27,29 @@ export const LeftSidebar = () => {
   const isAutoValid = betAmount > 0 && selectedRacers.length > 0 && autoMatches > 0;
   const isValid = betMode === 'manual' ? isManualValid : isAutoValid;
 
+  // Phase label for display
+  const phaseLabel = apiPhase === 'preparation' ? 'Betting' : apiPhase === 'resolution' ? 'Racing' : apiPhase === 'distribution' ? 'Results' : '';
+
   useEffect(() => {
     const updateTimer = () => {
-      if (mode === 'PREPARATION') {
-        const remaining = Math.max(0, Math.ceil((startTime - Date.now()) / 1000));
-        const mins = Math.floor(remaining / 60)
-          .toString()
-          .padStart(2, '0');
-        const secs = (remaining % 60).toString().padStart(2, '0');
+      if (hasApiState) {
+        // Clock-drift safe: duration from server pair, elapsed from local receive
+        const duration = apiPhaseEndsAt - apiPhaseStartedAt;
+        const serverNow = apiPhaseStartedAt + (Date.now() - apiPhaseStartedAt);
+        const remainingMs = Math.max(0, apiPhaseEndsAt - serverNow);
+        const totalSeconds = Math.floor(remainingMs / 1000);
+        const clamped = Math.min(totalSeconds, 59 * 60 + 59);
+        const mins = Math.floor(clamped / 60).toString().padStart(2, '0');
+        const secs = (clamped % 60).toString().padStart(2, '0');
         setTimeLeft(`${mins}:${secs}`);
-      } else if (mode === 'RACE') {
-        setTimeLeft('RACING');
       } else {
-        setTimeLeft('ENDED');
+        setTimeLeft('--:--');
       }
     };
-
-    updateTimer(); // Initial call
+    updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [startTime, mode]);
+  }, [hasApiState, apiPhaseStartedAt, apiPhaseEndsAt]);
 
   return (
     <div className="w-80 flex-shrink-0 bg-game-bg border-r border-white/10 flex flex-col h-full overflow-hidden text-white font-mono">
@@ -62,7 +71,7 @@ export const LeftSidebar = () => {
               <span className="font-bold text-base font-sans">{timeLeft}</span>
             </div>
             <span className="text-[10px] font-sans tracking-wider text-white/60">
-              Time Remaining
+              {phaseLabel ? `${phaseLabel} Phase` : 'Time Remaining'}
             </span>
           </div>
 
@@ -70,18 +79,24 @@ export const LeftSidebar = () => {
           <div className="group rounded-lg border border-white/10 bg-game-card/10 p-3 flex flex-col items-center justify-center">
             <div className="flex items-center gap-1 mb-1">
               <SolColorIconSvg className="w-4 h-4" />
-              <span className="font-bold text-base font-sans">11.4522</span>
+              <span className="font-bold text-base font-sans">
+                {hasApiState
+                  ? (Number(apiTotalPot) / LAMPORTS_PER_SOL).toFixed(4)
+                  : '0.0000'}
+              </span>
             </div>
             <span className="text-[10px] font-sans tracking-wider text-white/60">Prize Pool</span>
           </div>
 
-          {/* Your Position */}
+          {/* Round */}
           <div className="group rounded-lg border border-white/10 bg-game-card/10 p-3 flex flex-col items-center justify-center">
             <div className="h-6 flex items-center mb-1">
-              <span className="font-bold text-base font-sans">--</span>
+              <span className="font-bold text-base font-sans">
+                {apiRoundId > 0 ? `#${apiRoundId}` : '--'}
+              </span>
             </div>
             <span className="text-[10px] font-sans tracking-wider text-white/60">
-              Your Position
+              Round
             </span>
           </div>
         </div>

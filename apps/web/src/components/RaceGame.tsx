@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { GameApp } from '../game/core/GameApp';
 import { gameSocket } from '../network/socket';
+import { API_SOCKET_URL } from '../game/constants';
 
 export const RaceGame = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -13,12 +14,14 @@ export const RaceGame = () => {
       game.init(containerRef.current).catch(console.error);
       gameRef.current = game;
 
-      // Connect socket
-      gameSocket.connect();
+      // Only connect the old simulation socket when API socket is NOT available.
+      // When API is connected, scenes self-animate based on phase timing.
+      if (!API_SOCKET_URL || API_SOCKET_URL === 'MOCK') {
+        gameSocket.connect();
+      }
     }
 
     return () => {
-      // Cleanup
       if (gameRef.current) {
         gameRef.current.destroy();
         gameRef.current = null;
