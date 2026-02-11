@@ -8,6 +8,7 @@ import { RngModule } from './modules/rng/rng.module';
 import { IndexingModule } from './modules/indexing/indexing.module';
 import { BetHistoryModule } from './modules/bet-history/bet-history.module';
 import { RoundHistoryModule } from './modules/round-history/round-history.module';
+import { UserModule } from './modules/user/user.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { RoundHistoryModule } from './modules/round-history/round-history.module
     IndexingModule,
     BetHistoryModule,
     RoundHistoryModule,
+    UserModule,
   ],
 })
 export class AppModule {}
