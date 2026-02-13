@@ -1,5 +1,20 @@
 import { GamePhase } from './game';
 
+// ─── Race animation (Strategy A) ─────────────────────────────────────
+
+/** Time segment [from, to] (0-1) with speed multiplier. Gaps use baseSpeed. */
+export interface RaceSegment {
+  from: number;
+  to: number;
+  mult: number;
+}
+
+/** Per-sperm race params: base speed + optional boost segments */
+export interface SpermRaceParams {
+  baseSpeed: number;
+  segments?: RaceSegment[];
+}
+
 // ─── Socket Payload Types (lean, scannable objects) ──────────────────
 // Designed to be minimal: no user-sperm bet maps, no bulky arrays.
 // Frontend derives what it needs from these compact payloads.
@@ -32,6 +47,10 @@ export interface GameStatePayload {
   commitment?: string;
   /** Winning sperm ID (present after resolution) */
   winner?: number;
+  /** Deterministic race params for Strategy A (resolution phase only). Index = spermId. */
+  raceParams?: SpermRaceParams[];
+  /** Race finish order [1st, 2nd, ..., 10th] (distribution phase; also in round:result) */
+  leaderboard?: number[];
 }
 
 /**
@@ -66,6 +85,10 @@ export interface PhaseUpdatePayload {
   winner?: number;
   /** Total pot snapshot (distribution phase) */
   totalPot?: string;
+  /** Deterministic race params for Strategy A (resolution phase only) */
+  raceParams?: SpermRaceParams[];
+  /** Race finish order (distribution phase) */
+  leaderboard?: number[];
 }
 
 /**
@@ -77,6 +100,10 @@ export interface RoundResultPayload {
   winnerId: number;
   totalPot: string;
   isBabyKingHit: boolean;
+  /** Deterministic race params for Strategy A (included for clients that may have missed phase:update) */
+  raceParams?: SpermRaceParams[];
+  /** Race finish order: [1st, 2nd, ..., 10th] spermIds. For distribution phase leaderboard. */
+  leaderboard?: number[];
 }
 
 /** Error payload */
