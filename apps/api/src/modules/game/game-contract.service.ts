@@ -11,6 +11,7 @@ import {
   PHASE_DURATIONS,
   GamePhase,
   SPERM_COUNT,
+  SpermRaceParams,
 } from '../../common';
 import { RedisService } from '../redis/redis.service';
 import {
@@ -259,22 +260,6 @@ export class GameContractService implements OnModuleInit {
     );
     this.logger.log(`🔒 Betting locked for round ${roundId}`);
 
-    // ─── Redis: resolution countdown starts now ───
-    const phaseStartedAt = Date.now();
-    const phaseEndsAt = phaseStartedAt + this.resolutionDuration;
-    {
-      const redis = this.redisService.getClient();
-      await redis.set(
-        REDIS_KEYS.roundPhase(roundId),
-        JSON.stringify({ phase: GamePhase.RESOLUTION, startedAt: phaseStartedAt, endsAt: phaseEndsAt }),
-      );
-      await this.redisService.publish(REDIS_CHANNELS.PHASE_UPDATE, {
-        roundId,
-        phase: GamePhase.RESOLUTION,
-        startedAt: phaseStartedAt,
-        endsAt: phaseEndsAt,
-      });
-    }
 
     const endSlot = this.currentEndSlot;
     const roundStartSlot = this.currentRoundStartSlot;
@@ -308,6 +293,15 @@ export class GameContractService implements OnModuleInit {
       roundId,
     );
 
+    const spermCount = Number(this.configService.get('SPERM_COUNT', SPERM_COUNT));
+    const raceParams = this.rngService.deriveRaceParams(
+      slotHash,
+      this.currentServerSeed!,
+      roundId,
+      winnerId,
+      spermCount,
+    );
+
     this.logger.log(
       `🎲 Winner Sperm #${winnerId}, baby_king=${babyKingHit}`,
     );
@@ -325,11 +319,12 @@ export class GameContractService implements OnModuleInit {
     );
     this.logger.log(`✅ Round ${roundId} resolved on-chain: Winner sperm #${winnerId}`);
 
-    // ─── Redis: publish round result with winner ───
+    const phaseStartedAt = Date.now();
+    const phaseEndsAt = phaseStartedAt + this.resolutionDuration;
+
+    // ─── Redis + socket: only after on-chain resolve succeeded ───
     {
       const redis = this.redisService.getClient();
-      const totalPot =
-        (await redis.get(REDIS_KEYS.roundTotalPot(roundId))) || '0';
       await redis.set(
         REDIS_KEYS.roundPhase(roundId),
         JSON.stringify({
@@ -337,13 +332,28 @@ export class GameContractService implements OnModuleInit {
           startedAt: phaseStartedAt,
           endsAt: phaseEndsAt,
           winner: winnerId,
+          raceParams,
         }),
       );
+      await this.redisService.publish(REDIS_CHANNELS.PHASE_UPDATE, {
+        roundId,
+        phase: GamePhase.RESOLUTION,
+        startedAt: phaseStartedAt,
+        endsAt: phaseEndsAt,
+        winner: winnerId,
+        raceParams,
+      });
+
+      const totalPot =
+        (await redis.get(REDIS_KEYS.roundTotalPot(roundId))) || '0';
+      const leaderboard = this.rngService.computeLeaderboard(raceParams);
       await this.redisService.publish(REDIS_CHANNELS.ROUND_RESULT, {
         roundId,
         winnerId,
         totalPot,
         isBabyKingHit: babyKingHit,
+        raceParams,
+        leaderboard,
       });
     }
 
@@ -372,20 +382,24 @@ export class GameContractService implements OnModuleInit {
     const prevPhase = phaseJson ? JSON.parse(phaseJson) : {};
     const winnerId: number | undefined = prevPhase.winner;
     const pot = totalPot || '0';
+    const raceParams = prevPhase.raceParams as unknown[] | undefined;
+    const leaderboard =
+      raceParams?.length != null
+        ? this.rngService.computeLeaderboard(raceParams as SpermRaceParams[])
+        : undefined;
 
     this.logger.log(`Round ${roundId} - Winner: #${winnerId}, Total Pot: ${pot} lamports`);
 
-    // ─── Redis: publish distribution phase ───
+    // ─── Redis: publish distribution phase (includes leaderboard for late joiners) ───
     {
-      await redis.set(
-        REDIS_KEYS.roundPhase(roundId),
-        JSON.stringify({
-          phase: GamePhase.DISTRIBUTION,
-          startedAt: phaseStartedAt,
-          endsAt: phaseEndsAt,
-          winner: winnerId,
-        }),
-      );
+      const phasePayload = {
+        phase: GamePhase.DISTRIBUTION,
+        startedAt: phaseStartedAt,
+        endsAt: phaseEndsAt,
+        winner: winnerId,
+        ...(leaderboard != null && { leaderboard }),
+      };
+      await redis.set(REDIS_KEYS.roundPhase(roundId), JSON.stringify(phasePayload));
       await this.redisService.publish(REDIS_CHANNELS.PHASE_UPDATE, {
         roundId,
         phase: GamePhase.DISTRIBUTION,
@@ -393,6 +407,7 @@ export class GameContractService implements OnModuleInit {
         endsAt: phaseEndsAt,
         winner: winnerId,
         totalPot: pot,
+        ...(leaderboard != null && { leaderboard }),
       });
     }
 
