@@ -14,7 +14,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const LeftSidebar = () => {
   const { publicKey, connected } = useWallet();
-  const { placeBet, loading, balance } = useRaceContract();
+  const { placeBet, loading, balance, babyKingTotal } = useRaceContract();
   const mode = useGameStore((state) => state.mode);
   const apiPhase = useGameStore((state) => state.apiPhase);
   const apiPhaseStartedAt = useGameStore((state) => state.apiPhaseStartedAt);
@@ -84,7 +84,7 @@ export const LeftSidebar = () => {
   }, [canPlaceBet, placeBet, apiRoundId, selectedRacers, betAmount, fetchUserBet]);
 
   // Phase label for display
-  const phaseLabel = apiPhase === 'preparation' ? 'Betting' : apiPhase === 'resolution' ? 'Racing' : apiPhase === 'distribution' ? 'Results' : '';
+  const phaseLabel = apiPhase === 'preparation' ? 'Preparation' : apiPhase === 'resolution' ? 'Racing' : apiPhase === 'distribution' ? 'Results' : '';
 
   useEffect(() => {
     const updateTimer = () => {
@@ -116,7 +116,11 @@ export const LeftSidebar = () => {
           <div className="group rounded-lg border border-white/10 bg-game-card/10 p-3 flex flex-col items-center justify-center">
             <div className="flex items-center gap-2 mb-1">
               <SpmSwimSprite color="white" animating={false} className="w-6 h-6" />
-              <span className="font-bold text-base font-sans">20.4</span>
+              <span className="font-bold text-base font-sans">
+                {babyKingTotal !== null
+                  ? (Number(babyKingTotal) / LAMPORTS_PER_SOL).toFixed(4)
+                  : '…'}
+              </span>
             </div>
             <span className="text-[10px] font-sans tracking-wider text-white/60">Baby King</span>
           </div>
@@ -155,7 +159,7 @@ export const LeftSidebar = () => {
               </span>
             </div>
             <span className="text-[10px] font-sans tracking-wider text-white/60">
-              Your Bet
+              Your Pot
             </span>
           </div>
         </div>
@@ -219,7 +223,7 @@ export const LeftSidebar = () => {
 
         <ClaimWinningsSection />
 
-        {/* Betting Interface */}
+        {/* Panel Interface */}
         <div className="flex flex-col gap-3 mt-auto">
           <div className="rounded-lg border border-white/10 bg-game-card/10 p-4 relative overflow-hidden">
             {/* Tabs */}
@@ -399,7 +403,7 @@ export const LeftSidebar = () => {
                 : 'bg-white/10 text-white/40 cursor-not-allowed'
             }`}
           >
-            {loading ? 'Processing...' : betMode === 'manual' ? 'Place Bet' : 'Start Auto'}
+            {loading ? 'Processing...' : betMode === 'manual' ? 'Pick Sperm' : 'Start Auto'}
           </button>
         </div>
       </div>
