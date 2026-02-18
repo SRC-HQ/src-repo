@@ -1,6 +1,6 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text, Sprite } from 'pixi.js';
 import { Scene } from '../core/Scene';
-import { RACER_COLORS } from '../constants';
+import { RACER_COLORS, GAME_WIDTH, GAME_HEIGHT } from '../constants';
 
 const RACER_COUNT = 10;
 const LANE_HEIGHT = 50;
@@ -14,8 +14,14 @@ export class PreparationScene implements Scene {
   constructor() {
     this.container = new Container();
 
-    const text = new Text('BETTING PHASE — PLACE YOUR BETS', { fill: 0xffffff, fontSize: 20 });
-    text.position.set(50, 20);
+    const text = new Text('BETTING PHASE — PLACE YOUR BETS', { 
+      fill: 0xffffff,
+      fontSize: 24,
+      fontWeight: 'bold',
+      fontFamily: 'Orbitron'
+    });
+    text.anchor.set(0.5);
+    text.position.set(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100);
     this.container.addChild(text);
 
     // Show racers idle at start line
@@ -44,7 +50,7 @@ export class PreparationScene implements Scene {
     body.stroke({ width: 3, color });
     c.addChild(body);
     // @ts-ignore
-    const label = new Text({ text: `#${index + 1}`, style: { fontSize: 11, fill: 0xffffff } });
+    const label = new Text({ text: `#${index + 1}`, style: { fontSize: 11, fill: 0xffffff, fontFamily: 'Orbitron' } });
     label.position.set(-10, -28);
     c.addChild(label);
     return c;

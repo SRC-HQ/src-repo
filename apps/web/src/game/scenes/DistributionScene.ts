@@ -1,6 +1,7 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { Scene } from '../core/Scene';
 import { RACER_COLORS } from '../constants';
+import { useGameStore } from '../../store/gameStore';
 
 const RACER_COUNT = 10;
 const LANE_HEIGHT = 50;
@@ -10,6 +11,7 @@ const FINISH_X = 1100;
 export class DistributionScene implements Scene {
   container: Container;
   private racerGfxList: Container[] = [];
+  private winnerText: Text;
 
   constructor() {
     this.container = new Container();
@@ -17,9 +19,14 @@ export class DistributionScene implements Scene {
     const phaseText = new Text('RESULTS — DISTRIBUTING WINNINGS', {
       fill: 0xffffff,
       fontSize: 20,
+      fontFamily: 'Orbitron',
     });
     phaseText.position.set(50, 20);
     this.container.addChild(phaseText);
+
+    this.winnerText = new Text('WINNER: ...', { fill: 0xffd700, fontSize: 36, fontFamily: 'Orbitron' });
+    this.winnerText.position.set(400, 150);
+    this.container.addChild(this.winnerText);
 
     // Show all racers at the finish line
     for (let i = 0; i < RACER_COUNT; i++) {
@@ -47,7 +54,7 @@ export class DistributionScene implements Scene {
     body.stroke({ width: 3, color });
     c.addChild(body);
     // @ts-ignore
-    const label = new Text({ text: `#${index + 1}`, style: { fontSize: 11, fill: 0xffffff } });
+    const label = new Text({ text: `#${index + 1}`, style: { fontSize: 11, fill: 0xffffff, fontFamily: 'Orbitron' } });
     label.position.set(-10, -28);
     c.addChild(label);
     return c;
@@ -58,6 +65,23 @@ export class DistributionScene implements Scene {
     for (let i = 0; i < this.racerGfxList.length; i++) {
       const gfx = this.racerGfxList[i];
       gfx.children[0].y = Math.sin(Date.now() / 300 + i) * 1;
+    }
+
+    // Highlight winner
+    const state = useGameStore.getState();
+    
+    // First try to get winner from lastDistribution (most reliable source of truth)
+    if (state.lastDistribution && state.lastDistribution.result) {
+        const winnerId = state.lastDistribution.result.winnerSpermId;
+        this.winnerText.text = `WINNER: racer_${winnerId}`;
+        return;
+    }
+
+    // Fallback to local state
+    const racers = state.racers;
+    const winner = Object.values(racers).find((r) => r.finished);
+    if (winner) {
+      this.winnerText.text = `WINNER: ${winner.id}`;
     }
   }
 

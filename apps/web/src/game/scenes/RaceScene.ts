@@ -28,7 +28,7 @@ export class RaceScene implements Scene {
   constructor() {
     this.container = new Container();
 
-    this.headerText = new Text('RACE STARTED', { fill: 0xffffff, fontSize: 20 });
+    this.headerText = new Text('RACE STARTED', { fill: 0xffffff, fontSize: 20, fontFamily: 'Orbitron' });
     this.headerText.position.set(50, 20);
     this.container.addChild(this.headerText);
 
@@ -70,7 +70,7 @@ export class RaceScene implements Scene {
     c.addChild(body);
 
     // @ts-ignore
-    const label = new Text({ text: `#${index + 1}`, style: { fontSize: 11, fill: 0xffffff } });
+    const label = new Text({ text: `#${index + 1}`, style: { fontSize: 11, fill: 0xffffff, fontFamily: 'Orbitron' } });
     label.position.set(-10, -28);
     c.addChild(label);
 

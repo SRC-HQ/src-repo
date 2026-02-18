@@ -9,10 +9,10 @@ export const SPERM_COUNT = 10;
 export const PHASE_DURATIONS = {
   /** Preparation phase: 1 minute */
   PREPARATION: 60_000,
-  /** Resolution phase: 30 seconds */
-  RESOLUTION: 30_000,
-  /** Distribution phase: 30 seconds */
-  DISTRIBUTION: 30_000,
+  /** Resolution phase: 1 minute */
+  RESOLUTION: 60_000,
+  /** Distribution phase: 20 seconds */
+  DISTRIBUTION: 20_000,
 } as const;
 
 /**

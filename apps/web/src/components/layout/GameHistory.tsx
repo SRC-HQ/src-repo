@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import SpmSwimSprite from '../sprites/SpmSwimSprite';
+import Image from 'next/image';
 import SolColorIconSvg from '../svgs/SolColorIconSvg';
-import { RACER_COLORS } from '../../game/constants';
 
 export const GameHistory = () => {
   const [mounted, setMounted] = useState(false);
@@ -68,12 +67,15 @@ export const GameHistory = () => {
                 <td className="p-3 text-gray-500">{item.block}</td>
                 <td className="p-3 text-center">
                   <div className="flex items-center justify-center">
-                    <SpmSwimSprite
-                      color={RACER_COLORS[item.winnerIndex]}
-                      width={32}
-                      height={32}
-                      animating={false}
-                    />
+                    <div className="relative w-8 h-8 mt-2">
+                      <Image
+                        src={`/game/assets/icon_${String(item.winnerIndex + 1).padStart(2, '0')}.png`}
+                        alt={`Racer ${item.winnerIndex + 1}`}
+                        width={24}
+                        height={24}
+                        className="object-contain"
+                      />
+                    </div>
                   </div>
                 </td>
                 <td className="p-3 text-center text-white">{item.winnersCount}</td>

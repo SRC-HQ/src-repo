@@ -39,6 +39,9 @@ const initialState: GameState = {
   startTime: 0,
   isWalletConnected: false,
   hasWinnings: false,
+  lastDistribution: undefined,
+  isStateSynced: false,
+  serverFinished: false,
 };
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -59,6 +62,7 @@ export const useGameStore = create<GameStore>((set) => ({
   updateTick: (tick, updatedRacers) =>
     set((state) => {
       const newRacers = { ...state.racers };
+      let allFinished = true;
 
       // Efficiently update only changed racers
       for (const id in updatedRacers) {
@@ -66,8 +70,16 @@ export const useGameStore = create<GameStore>((set) => ({
           newRacers[id] = { ...newRacers[id], ...updatedRacers[id] };
         }
       }
+      
+      // Check if all racers are finished
+      for (const id in newRacers) {
+          if (!newRacers[id].finished) {
+              allFinished = false;
+              break;
+          }
+      }
 
-      return { tick, racers: newRacers };
+      return { tick, racers: newRacers, serverFinished: allFinished };
     }),
   setMode: (mode) =>
     set((prev) => {
@@ -83,6 +95,7 @@ export const useGameStore = create<GameStore>((set) => ({
       apiPhaseEndsAt: phaseEndsAt,
       apiTotalPot: totalPot,
       mode: PHASE_TO_MODE[phase] ?? 'PREPARATION',
+      isStateSynced: true,
     }),
   setApiTotalPot: (totalPot) => set({ apiTotalPot: totalPot }),
   resetApiStateForNewRound: () =>
