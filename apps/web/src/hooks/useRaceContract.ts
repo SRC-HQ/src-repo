@@ -15,19 +15,25 @@ export const useRaceContract = () => {
 
   const [program, setProgram] = useState<Program<SpermRace> | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [babyKingTotal, setBabyKingTotal] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (connection && wallet?.adapter) {
-      const provider = new AnchorProvider(connection, wallet.adapter as any, {
-        commitment: 'confirmed',
-      });
-
-      const idlWithProgramId = { ...IDL, address: PROGRAM_ID.toBase58() };
-      const programInstance = new Program<SpermRace>(idlWithProgramId as Idl, provider);
-      setProgram(programInstance);
-    }
+    if (!connection) return;
+    const walletOrDummy =
+      wallet?.adapter ??
+      ({
+        publicKey: new PublicKey('11111111111111111111111111111111'),
+        signTransaction: async (tx: Transaction) => tx,
+        signAllTransactions: async (txs: Transaction[]) => txs,
+      } as any);
+    const provider = new AnchorProvider(connection, walletOrDummy, {
+      commitment: 'confirmed',
+    });
+    const idlWithProgramId = { ...IDL, address: PROGRAM_ID.toBase58() };
+    const programInstance = new Program<SpermRace>(idlWithProgramId as Idl, provider);
+    setProgram(programInstance);
   }, [connection, wallet]);
 
   useEffect(() => {
@@ -88,6 +94,28 @@ export const useRaceContract = () => {
     );
     return pda;
   }, []);
+
+  useEffect(() => {
+    if (!program) {
+      setBabyKingTotal(null);
+      return;
+    }
+    const fetchBabyKing = async () => {
+      try {
+        const pda = getBabyKingVaultPda();
+        const vault = await program.account.babyKingVault.fetch(pda);
+        console.log(vault)
+        const total = (vault as { totalAccumulated: BN }).totalAccumulated;
+        setBabyKingTotal(total.toString());
+      } catch (e) {
+        console.error('[useRaceContract] Failed to fetch baby king vault:', e);
+        setBabyKingTotal(null);
+      }
+    };
+    fetchBabyKing();
+    const interval = setInterval(fetchBabyKing, 5000);
+    return () => clearInterval(interval);
+  }, [program, getBabyKingVaultPda]);
 
   const placeBet = useCallback(
     async (roundId: number, selectedSperms: Set<number>, amountPerSperm: number) => {
@@ -234,6 +262,7 @@ export const useRaceContract = () => {
 
   return {
     balance,
+    babyKingTotal,
     placeBet,
     claimWinnings,
     batchClaimWinnings,

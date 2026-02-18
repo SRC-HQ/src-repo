@@ -7,10 +7,11 @@ export type SolanaNetworkEnv = 'mainnet-beta' | 'mainnet' | 'devnet' | 'testnet'
 
 /** RPC URLs per network - devnet uses Helius, localnet uses localhost, mainnet uses Solana default */
 const RPC_URLS: Record<SolanaNetworkEnv, string> = {
-  devnet: 'https://devnet.helius-rpc.com/?api-key=d3ef124a-4e48-471c-943a-5ff2c2a03b22',
+  // devnet: 'https://devnet.helius-rpc.com/?api-key=d3ef124a-4e48-471c-943a-5ff2c2a03b22',
   localnet: 'http://localhost:8899',
-  'mainnet-beta': 'https://api.mainnet-beta.solana.com',
+  devnet: 'https://api.devnet.solana.com',
   mainnet: 'https://api.mainnet-beta.solana.com',
+  'mainnet-beta': 'https://api.mainnet-beta.solana.com',
   testnet: 'https://api.testnet.solana.com',
 };
 

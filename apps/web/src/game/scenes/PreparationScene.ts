@@ -17,7 +17,7 @@ export class PreparationScene implements Scene {
   constructor() {
     this.container = new Container();
 
-    const text = new Text('BETTING PHASE — PLACE YOUR BETS', {
+    const text = new Text('PREPARATION PHASE — CHOOSE YOUR SPERM', {
       fill: 0xffffff,
       fontSize: 20,
     });

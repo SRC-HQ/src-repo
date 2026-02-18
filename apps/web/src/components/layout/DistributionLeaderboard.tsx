@@ -15,12 +15,12 @@ export const DistributionLeaderboard: React.FC = () => {
     apiSperms?.find((s) => s.spermId === spermId)?.bettorCount ?? 0;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-10">
-      <div className="w-full max-w-2xl mx-4">
-        <h2 className="text-center text-xl font-bold text-white uppercase tracking-wider mb-6 font-sans">
+    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-10 overflow-hidden">
+      <div className="w-full max-w-md mx-4">
+        <h2 className="text-center text-base font-bold text-white uppercase tracking-wider mb-3 font-sans">
           Race Results
         </h2>
-        <div className="grid gap-2">
+        <div className="grid gap-1">
           {leaderboard.map((spermId, rank) => (
             <LeaderboardRow
               key={spermId}
@@ -52,32 +52,32 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({
   return (
     <div
       className={`
-        flex items-center gap-4 p-3 rounded-lg border transition-colors
+        flex items-center gap-2 p-1.5 rounded-md border transition-colors
         ${isWinner ? 'bg-primary/20 border-primary/50' : 'bg-white/5 border-white/10'}
       `}
     >
       <span
         className={`
-          w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold shrink-0
+          w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold shrink-0
           ${isWinner ? 'bg-primary text-white' : 'bg-white/10 text-white/80'}
         `}
       >
         {rank}
       </span>
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0">
         <SpmSwimSprite
           color={color}
-          width={40}
-          height={40}
+          width={24}
+          height={24}
           animating={true}
           className="shrink-0"
         />
         <div className="min-w-0">
-          <span className="font-sans text-sm text-white block truncate">
+          <span className="font-sans text-xs text-white block truncate">
             Sperm #{spermId + 1}
           </span>
-          <span className="text-xs text-white/60 font-sans">
-            {bettorCount} bettor{bettorCount !== 1 ? 's' : ''}
+          <span className="text-[10px] text-white/60 font-sans leading-tight">
+            {bettorCount} user{bettorCount !== 1 ? 's' : ''}
           </span>
         </div>
       </div>
