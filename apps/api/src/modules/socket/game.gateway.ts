@@ -15,6 +15,7 @@ import { REDIS_CHANNELS, REDIS_KEYS } from '../redis/redis.constants';
 import {
   GamePhase,
   SPERM_COUNT,
+  SpermRaceParams,
   ServerToClientEvents,
   ClientToServerEvents,
   GameStatePayload,
@@ -122,7 +123,15 @@ export class GameGateway
 
   private async buildStateFromRedis(
     roundId: number,
-    phase: { phase: GamePhase; startedAt: number; endsAt: number; commitment?: string; winner?: number },
+    phase: {
+      phase: GamePhase;
+      startedAt: number;
+      endsAt: number;
+      commitment?: string;
+      winner?: number;
+      raceParams?: SpermRaceParams[];
+      leaderboard?: number[];
+    },
   ): Promise<GameStatePayload> {
     const redis = this.redisService.getClient();
     const spermCount = Number(this.configService.get('SPERM_COUNT', SPERM_COUNT));
@@ -156,6 +165,8 @@ export class GameGateway
       sperms,
       commitment: phase.commitment,
       winner: phase.winner,
+      raceParams: phase.raceParams,
+      leaderboard: phase.leaderboard,
     };
   }
 
