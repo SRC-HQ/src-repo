@@ -13,4 +13,7 @@ export interface GameState {
   startTime: number;
   isWalletConnected?: boolean;
   hasWinnings?: boolean;
+  lastDistribution?: any; // Define proper type if possible, or use any for now
+  isStateSynced?: boolean;
+  serverFinished?: boolean;
 }

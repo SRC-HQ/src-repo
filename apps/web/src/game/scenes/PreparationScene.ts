@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text, Sprite } from 'pixi.js';
 import { Scene } from '../core/Scene';
 
 const RACER_COUNT = 10;

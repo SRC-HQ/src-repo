@@ -112,8 +112,6 @@ export interface ErrorPayload {
   message: string;
 }
 
-// ─── Socket.io type definitions ──────────────────────────────────────
-
 export interface ServerToClientEvents {
   /** Initial game state snapshot (sent on connect) */
   'game:state': (data: GameStatePayload) => void;

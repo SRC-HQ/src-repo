@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
 import { useRaceContract } from '../../hooks/useRaceContract';
@@ -211,11 +212,15 @@ export const LeftSidebar = () => {
                   ${selectedRacers.includes(i) ? 'scale-125 drop-shadow-[0_0_5px_rgba(182,176,255,0.8)]' : 'hover:opacity-80 opacity-60 grayscale-[0.5]'}
                 `}
               >
-                <SpmSwimSprite
-                  color={RACER_COLORS[i]}
-                  className="w-full h-full"
-                  animating={selectedRacers.includes(i)}
-                />
+                <div className="relative w-full h-full">
+                  <Image
+                    src={`/game/assets/icon_${String(i + 1).padStart(2, '0')}.png`}
+                    alt={`Racer ${i + 1}`}
+                    width={32}
+                    height={32}
+                    className="object-contain"
+                  />
+                </div>
               </button>
             ))}
           </div>

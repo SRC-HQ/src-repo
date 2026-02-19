@@ -14,6 +14,7 @@ export class DistributionScene implements Scene {
     const phaseText = new Text('RESULTS — DISTRIBUTING WINNINGS', {
       fill: 0xffffff,
       fontSize: 20,
+      fontFamily: 'Orbitron',
     });
     phaseText.position.set(50, 20);
     this.container.addChild(phaseText);

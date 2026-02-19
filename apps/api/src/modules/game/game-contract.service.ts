@@ -42,6 +42,14 @@ export class GameContractService implements OnModuleInit {
    */
   private slotMsEstimate: number = DEFAULT_SLOT_MS;
 
+  // State Tracking
+  private currentPhase: GamePhase = GamePhase.PREPARATION;
+  private currentPhaseEndsAt: number = 0;
+  private currentPhaseStartTime: number = 0;
+  // private lastDistributionEvent: DistributionEvent | null = null;
+  private currentWinnerId: number | null = null;
+  private currentPositions: number[] = [];
+
   // Phase durations
   private preparationDuration: number;
   private resolutionDuration: number;
@@ -168,6 +176,13 @@ export class GameContractService implements OnModuleInit {
    */
   private async runPreparationPhase(roundId: number): Promise<void> {
     this.logger.log(`⏳ Preparation phase started (Round ${roundId})`);
+    
+    // Update State
+    this.currentPhase = GamePhase.PREPARATION;
+    this.currentPhaseStartTime = Date.now();
+    this.currentPhaseEndsAt = this.currentPhaseStartTime + this.preparationDuration;
+    this.currentWinnerId = null;
+    this.currentPositions = [];
 
     // Generate server seed and hash
     this.currentServerSeed = crypto.randomBytes(32);
@@ -245,6 +260,11 @@ export class GameContractService implements OnModuleInit {
    */
   private async runResolutionPhase(roundId: number): Promise<void> {
     this.logger.log(`🏁 Resolution phase started (Round ${roundId})`);
+
+    // Update State
+    this.currentPhase = GamePhase.RESOLUTION;
+    this.currentPhaseStartTime = Date.now();
+    this.currentPhaseEndsAt = this.currentPhaseStartTime + this.resolutionDuration;
 
     const authorityWallet = this.solanaService.getAuthorityWallet();
     if (!authorityWallet) {
