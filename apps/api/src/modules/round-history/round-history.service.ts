@@ -7,9 +7,36 @@ import { BorshEventCoder, EventParser, Idl } from '@coral-xyz/anchor';
 import * as IDL from '@sperm-race/contract-types/idl';
 import { RoundHistory } from '@/entities/round-history.entity';
 import { BetHistory } from '@/entities/bet-history.entity';
+import { DistributionHistory } from '@/entities/distribution-history.entity';
 import { IndexedRoundStart, IndexedRoundResolution } from '@/common';
 import { DistributionHistoryService } from '../distribution-history/distribution-history.service';
 import { RawInstructionPayload } from '@/common/types/indexing';
+
+export interface RoundWinnerUserBet {
+  user_address: string;
+  sperm_id: number;
+  amount: string;
+  tx_hash: string;
+}
+
+export interface RoundWinnerUserWinning {
+  user_address: string;
+  sperm_id: number;
+  bet_amount: string;
+  winning_amount: string;
+  claim_tx_hash: string | null;
+}
+
+export interface RoundWinnerResponse {
+  round_id: string;
+  winner_sperm_id: number | null;
+  total_pot: string;
+  total_user: number;
+  user_pots: RoundWinnerUserBet[];
+  timestamp: Date | null;
+  tx_hash: string;
+  user_winnings: RoundWinnerUserWinning[] | null;
+}
 
 /** Decoded StartRoundEvent from chain (Anchor BN/PublicKey / bytes). */
 interface StartRoundEventData {
@@ -58,6 +85,8 @@ export class RoundHistoryService {
     private readonly roundHistoryRepo: Repository<RoundHistory>,
     @InjectRepository(BetHistory)
     private readonly betHistoryRepo: Repository<BetHistory>,
+    @InjectRepository(DistributionHistory)
+    private readonly distributionHistoryRepo: Repository<DistributionHistory>,
     private readonly distributionHistoryService: DistributionHistoryService,
   ) {
     const programId = this.configService.get<string>('PROGRAM_ID');
@@ -285,6 +314,96 @@ export class RoundHistoryService {
       this.logger.error(`Failed to apply round resolution: ${err?.message}`, err?.stack);
       throw err;
     }
+  }
+
+  /**
+   * Fetch previous resolved rounds with winner data, user bets, and winning allocations.
+   * Uses skip/limit pagination with default limit of 10.
+   */
+  async getPreviousRoundWinners(
+    skip = 0,
+    limit = 10,
+  ): Promise<RoundWinnerResponse[]> {
+    const rounds = await this.roundHistoryRepo
+      .createQueryBuilder('r')
+      .select([
+        'r.round_id',
+        'r.winning_sperm_id',
+        'r.total_pot',
+        'r.total_address',
+        'r.timestamp',
+        'r.tx_hash',
+      ])
+      .where('r.winning_sperm_id IS NOT NULL')
+      .orderBy('r.round_id', 'DESC')
+      .skip(skip)
+      .take(limit)
+      .getMany();
+
+    if (rounds.length === 0) return [];
+
+    const roundIds = rounds.map((r) => r.round_id);
+
+    const [bets, distributions] = await Promise.all([
+      this.betHistoryRepo
+        .createQueryBuilder('b')
+        .select(['b.round_id', 'b.user_address', 'b.sperm_id', 'b.amount', 'b.tx_hash'])
+        .where('b.round_id IN (:...roundIds)', { roundIds })
+        .getMany(),
+      this.distributionHistoryRepo
+        .createQueryBuilder('d')
+        .select([
+          'd.round_id',
+          'd.user_address',
+          'd.winning_sperm_id',
+          'd.bet_amount',
+          'd.winning_amount',
+          'd.claim_tx_hash',
+        ])
+        .where('d.round_id IN (:...roundIds)', { roundIds })
+        .getMany(),
+    ]);
+
+    const betsByRound = new Map<string, RoundWinnerUserBet[]>();
+    for (const bet of bets) {
+      const list = betsByRound.get(bet.round_id) ?? [];
+      list.push({
+        user_address: bet.user_address,
+        sperm_id: bet.sperm_id,
+        amount: bet.amount,
+        tx_hash: bet.tx_hash,
+      });
+      betsByRound.set(bet.round_id, list);
+    }
+
+    const distributionsByRound = new Map<string, RoundWinnerUserWinning[]>();
+    for (const d of distributions) {
+      const list = distributionsByRound.get(d.round_id) ?? [];
+      list.push({
+        user_address: d.user_address,
+        sperm_id: d.winning_sperm_id,
+        bet_amount: d.bet_amount,
+        winning_amount: d.winning_amount,
+        claim_tx_hash: d.claim_tx_hash,
+      });
+      distributionsByRound.set(d.round_id, list);
+    }
+
+    return rounds.map((r) => {
+      const userBets = betsByRound.get(r.round_id) ?? [];
+      const userWinnings = distributionsByRound.get(r.round_id) ?? [];
+
+      return {
+        round_id: r.round_id,
+        winner_sperm_id: r.winning_sperm_id,
+        total_pot: r.total_pot,
+        total_user: r.total_address,
+        user_pots: userBets,
+        timestamp: r.timestamp,
+        tx_hash: r.tx_hash,
+        user_winnings: userWinnings.length > 0 ? userWinnings : null,
+      };
+    });
   }
 
 }
