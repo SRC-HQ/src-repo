@@ -17,9 +17,6 @@
     "db:seed": "echo 'Add seed command here'"
   },
   "dependencies": {
-    "@nestjs/cache-manager": "^2.2.2",
-    "@keyv/redis": "^5.1.0",
-    "cache-manager": "^6.1.0",
     "@nestjs/bull": "^10.2.3",
     "bull": "^4.16.3",
     "@coral-xyz/anchor": "^0.32.1",
