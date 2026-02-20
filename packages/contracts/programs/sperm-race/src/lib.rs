@@ -149,6 +149,8 @@ pub mod sperm_race {
     pub fn resolve_round(ctx: Context<ResolveRound>, server_seed: [u8; 32]) -> Result<()> {
         let round_account = &mut ctx.accounts.round_account;
 
+        require!(round_account.is_locked, ErrorCode::BettingNotLocked);
+
         // 1. Verify commitment: hash(server_seed) == hashed_seed
         let mut hasher = Sha256::new();
         hasher.update(&server_seed);
@@ -549,6 +551,7 @@ pub enum ErrorCode {
     #[msg("Invalid sperm ID: Must be 0-9")] InvalidSpermId,
     #[msg("Invalid bet amount")] InvalidBetAmount,
     #[msg("Betting is locked")] BettingLocked,
+    #[msg("Betting must be locked before resolving")] BettingNotLocked,
     #[msg("Round overflow")] RoundOverflow,
     #[msg("Amount overflow")] AmountOverflow,
     #[msg("Invalid seed hash")] InvalidSeed,
