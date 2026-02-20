@@ -7,7 +7,6 @@ export class DistributionHistoryController {
 
   /**
    * Top 10 biggest winnings of all time by user address.
-   * Cached (5 min TTL) — data changes infrequently.
    */
   @Get('leaderboard')
   async getTopWinningsLeaderboard() {

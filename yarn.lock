@@ -346,6 +346,24 @@
   resolved "https://registry.yarnpkg.com/@borewit/text-codec/-/text-codec-0.2.1.tgz#5d171538907a8cb395fdc2eb5e8f7947d96c7f2f"
   integrity sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==
 
+"@cacheable/memory@^2.0.7":
+  version "2.0.7"
+  resolved "https://registry.yarnpkg.com/@cacheable/memory/-/memory-2.0.7.tgz#1e066dc543b7c6797d0d230ce23d90898aca14c7"
+  integrity sha512-RbxnxAMf89Tp1dLhXMS7ceft/PGsDl1Ip7T20z5nZ+pwIAsQ1p2izPjVG69oCLv/jfQ7HDPHTWK0c9rcAWXN3A==
+  dependencies:
+    "@cacheable/utils" "^2.3.3"
+    "@keyv/bigmap" "^1.3.0"
+    hookified "^1.14.0"
+    keyv "^5.5.5"
+
+"@cacheable/utils@^2.3.3":
+  version "2.3.4"
+  resolved "https://registry.yarnpkg.com/@cacheable/utils/-/utils-2.3.4.tgz#3d0d6f9069ff3ff325f877bfd9c09468981f8a68"
+  integrity sha512-knwKUJEYgIfwShABS1BX6JyJJTglAFcEU7EXqzTdiGCXur4voqkiJkdgZIQtWNFhynzDWERcTYv/sETMu3uJWA==
+  dependencies:
+    hashery "^1.3.0"
+    keyv "^5.6.0"
+
 "@colors/colors@1.5.0":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.5.0.tgz#bb504579c1cae923e6576a4f5da43d25f97bdbd9"
@@ -798,7 +816,15 @@
     bs58 "^5.0.0"
     uuid "^8.3.2"
 
-"@keyv/redis@^5.1.0":
+"@keyv/bigmap@^1.3.0":
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/@keyv/bigmap/-/bigmap-1.3.1.tgz#fc82fa83947e7ff68c6798d08907db842771ef2c"
+  integrity sha512-WbzE9sdmQtKy8vrNPa9BRnwZh5UF4s1KTmSK0KUVLo3eff5BlQNNWDnFOouNpKfPKDnms9xynJjsMYjMaT/aFQ==
+  dependencies:
+    hashery "^1.4.0"
+    hookified "^1.15.0"
+
+"@keyv/redis@^5.1.4":
   version "5.1.6"
   resolved "https://registry.yarnpkg.com/@keyv/redis/-/redis-5.1.6.tgz#f56030cc2883fa30401da814761d350aad87adee"
   integrity sha512-eKvW6pspvVaU5dxigaIDZr635/Uw6urTXL3gNbY9WTR8d3QigZQT+r8gxYSEOsw4+1cCBsC4s7T2ptR0WC9LfQ==
@@ -4562,6 +4588,17 @@ cache-manager@^6.1.0:
   dependencies:
     keyv "^5.3.3"
 
+cacheable@^2.3.0:
+  version "2.3.2"
+  resolved "https://registry.yarnpkg.com/cacheable/-/cacheable-2.3.2.tgz#89800b4864c3ab8b23dae6dca8b6232cbf49b299"
+  integrity sha512-w+ZuRNmex9c1TR9RcsxbfTKCjSL0rh1WA5SABbrWprIHeNBdmyQLSYonlDy9gpD+63XT8DgZ/wNh1Smvc9WnJA==
+  dependencies:
+    "@cacheable/memory" "^2.0.7"
+    "@cacheable/utils" "^2.3.3"
+    hookified "^1.15.0"
+    keyv "^5.5.5"
+    qified "^0.6.0"
+
 call-bind-apply-helpers@^1.0.0, call-bind-apply-helpers@^1.0.1, call-bind-apply-helpers@^1.0.2:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz#4b5428c222be985d79c3d82657479dbe0b59b2d6"
@@ -6490,6 +6527,13 @@ hash.js@^1.0.0, hash.js@^1.0.3, hash.js@^1.1.7:
     inherits "^2.0.3"
     minimalistic-assert "^1.0.1"
 
+hashery@^1.3.0, hashery@^1.4.0:
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/hashery/-/hashery-1.5.0.tgz#f28a8068b8d08f5a40afd2a5515e4a1c8b84444a"
+  integrity sha512-nhQ6ExaOIqti2FDWoEMWARUqIKyjr2VcZzXShrI+A3zpeiuPWzx6iPftt44LhP74E5sW36B75N6VHbvRtpvO6Q==
+  dependencies:
+    hookified "^1.14.0"
+
 hasown@^2.0.2:
   version "2.0.2"
   resolved "https://registry.yarnpkg.com/hasown/-/hasown-2.0.2.tgz#003eaf91be7adc372e84ec59dc37252cedb80003"
@@ -6506,7 +6550,7 @@ hmac-drbg@^1.0.1:
     minimalistic-assert "^1.0.0"
     minimalistic-crypto-utils "^1.0.1"
 
-hookified@^1.13.0:
+hookified@^1.13.0, hookified@^1.14.0, hookified@^1.15.0:
   version "1.15.1"
   resolved "https://registry.yarnpkg.com/hookified/-/hookified-1.15.1.tgz#b1fafeaa5489cdc29cb85546a8f837ed4ffbbcb6"
   integrity sha512-MvG/clsADq1GPM2KGo2nyfaWVyn9naPiXrqIe4jYjXNZQt238kWyOGrsyc/DmRAQ+Re6yeo6yX/yoNCG5KAEVg==
@@ -7643,7 +7687,7 @@ jwt-decode@^4.0.0:
   resolved "https://registry.yarnpkg.com/jwt-decode/-/jwt-decode-4.0.0.tgz#2270352425fd413785b2faf11f6e755c5151bd4b"
   integrity sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA==
 
-keyv@^5.3.3:
+keyv@^5.3.3, keyv@^5.5.5, keyv@^5.6.0:
   version "5.6.0"
   resolved "https://registry.yarnpkg.com/keyv/-/keyv-5.6.0.tgz#03044074c6b4d072d0a62c7b9fa649537baf0105"
   integrity sha512-CYDD3SOtsHtyXeEORYRx2qBtpDJFjRTGXUtmNEMGyzYOKj1TE3tycdlho7kA1Ufx9OYWZzg52QFBGALTirzDSw==
@@ -8961,6 +9005,13 @@ pushdata-bitcoin@^1.0.1:
   integrity sha512-hw7rcYTJRAl4olM8Owe8x0fBuJJ+WGbMhQuLWOXEMN3PxPCKQHRkhfL+XG0+iXUmSHjkMmb3Ba55Mt21cZc9kQ==
   dependencies:
     bitcoin-ops "^1.3.0"
+
+qified@^0.6.0:
+  version "0.6.0"
+  resolved "https://registry.yarnpkg.com/qified/-/qified-0.6.0.tgz#a9c33f51fa37d03003065638bb7dff45d7a81297"
+  integrity sha512-tsSGN1x3h569ZSU1u6diwhltLyfUWDp3YbFHedapTmpBl0B3P6U3+Qptg7xu+v+1io1EwhdPyyRHYbEw0KN2FA==
+  dependencies:
+    hookified "^1.14.0"
 
 qr.js@0.0.0:
   version "0.0.0"
