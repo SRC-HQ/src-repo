@@ -1,10 +1,11 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { PublicKey } from '@solana/web3.js';
 import { SolanaService } from '../solana/solana.service';
-import { BetHistoryService } from '../bet-history/bet-history.service';
-import { RoundHistoryService } from '../round-history/round-history.service';
-import { RawInstructionPayload } from '@/common/types/indexing';
+import { IndexingJobData } from '@/common/types/indexing';
+import { INDEXING_QUEUE } from './indexing.constants';
 
 const INSTRUCTION_PREFIX = 'Program log: Instruction: ';
 
@@ -17,8 +18,7 @@ export class IndexingService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly configService: ConfigService,
     private readonly solanaService: SolanaService,
-    private readonly betHistoryService: BetHistoryService,
-    private readonly roundHistoryService: RoundHistoryService,
+    @InjectQueue(INDEXING_QUEUE) private readonly indexingQueue: Queue,
   ) {}
 
   async onModuleInit() {
@@ -79,29 +79,24 @@ export class IndexingService implements OnModuleInit, OnModuleDestroy {
         try {
           const slot = context.slot;
           const signature = logs.signature;
-          const blockTime = await connection.getBlockTime(slot).catch(() => null);
+          // Use server time instead of RPC getBlockTime to reduce cost and latency
+          const blockTime = Math.floor(Date.now() / 1000);
 
-          const payload: RawInstructionPayload = {
-            // Keep a representative instruction for backwards compatibility; services should rely on events.
+          const jobData: IndexingJobData = {
             instruction: Array.from(instructions)[0] ?? '',
+            instructionNames: Array.from(instructions),
             logs: logs.logs,
             signature,
             slot,
             blockTime,
           };
 
-          if (instructions.has('PlaceBet') || instructions.has('ReclaimBetRent')) {
-            await this.betHistoryService.handleInstruction(payload);
-          }
-
-          if (
-            instructions.has('StartRound') ||
-            instructions.has('LockBetting') ||
-            instructions.has('ResolveRound') ||
-            instructions.has('ClaimWinnings')
-          ) {
-            await this.roundHistoryService.handleInstruction(payload);
-          }
+          await this.indexingQueue.add(jobData, {
+            jobId: signature, // Idempotency: same tx won't be queued twice
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 1000 }, // 1s, 2s, 4s
+            removeOnComplete: 100, // Keep last 100 for debugging
+          });
         } catch (e: any) {
           this.logger.error(`Indexing error: ${e.message}`, e.stack);
         }

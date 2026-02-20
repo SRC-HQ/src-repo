@@ -1,9 +1,26 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DistributionHistory } from '@/entities/distribution-history.entity';
 import { BetHistory } from '@/entities/bet-history.entity';
 import { IndexedRoundResolution } from '@/common';
+
+/** Cache TTL for leaderboard (5 min — data changes infrequently) */
+const LEADERBOARD_CACHE_TTL_MS = 300_000;
+
+const LEADERBOARD_CACHE_KEY = 'distribution-history:leaderboard:top10';
+
+export interface LeaderboardEntry {
+  rank: number;
+  user_address: string;
+  total_winning_amount: string;
+}
+
+export interface LeaderboardResponse {
+  entries: LeaderboardEntry[];
+}
 
 export interface UnclaimedDistributionRecord {
   id: string;
@@ -29,7 +46,38 @@ export class DistributionHistoryService {
     private readonly distributionHistoryRepo: Repository<DistributionHistory>,
     @InjectRepository(BetHistory)
     private readonly betHistoryRepo: Repository<BetHistory>,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
+
+  /**
+   * Top 10 biggest winnings of all time by user address.
+   * Cached via NestJS Cache Manager (5 min TTL) since this data changes infrequently.
+   */
+  async getTopWinningsLeaderboard(): Promise<LeaderboardResponse> {
+    return this.cacheManager.wrap(
+      LEADERBOARD_CACHE_KEY,
+      async () => {
+        const rows = await this.distributionHistoryRepo
+          .createQueryBuilder('d')
+          .select('d.user_address', 'user_address')
+          .addSelect('SUM(CAST(d.winning_amount AS DECIMAL))', 'total_winning_amount')
+          .groupBy('d.user_address')
+          .orderBy('total_winning_amount', 'DESC')
+          .limit(10)
+          .getRawMany<{ user_address: string; total_winning_amount: string }>();
+
+        const entries: LeaderboardEntry[] = rows.map((r, i) => ({
+          rank: i + 1,
+          user_address: r.user_address,
+          total_winning_amount: r.total_winning_amount,
+        }));
+
+        return { entries };
+      },
+      LEADERBOARD_CACHE_TTL_MS,
+    );
+  }
 
   /**
    * List all unclaimed distribution records for a user (claim_tx_hash IS NULL).
