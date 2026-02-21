@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
 import { useRaceContract } from '../../hooks/useRaceContract';
+import { useWalletBalance } from '../../hooks/useWalletBalance';
 import SpmSwimSprite from '../sprites/SpmSwimSprite';
 import SolColorIconSvg from '../svgs/SolColorIconSvg';
 import { RACER_COLORS } from '../../game/constants';
@@ -15,7 +16,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const LeftSidebar = () => {
   const { publicKey, connected } = useWallet();
-  const { placeBet, loading, balance, babyKingTotal } = useRaceContract();
+  const { placeBet, loading, babyKingTotal } = useRaceContract();
+  const { balance, refetch: refetchBalance } = useWalletBalance();
   const mode = useGameStore((state) => state.mode);
   const apiPhase = useGameStore((state) => state.apiPhase);
   const apiPhaseStartedAt = useGameStore((state) => state.apiPhaseStartedAt);
@@ -33,7 +35,7 @@ export const LeftSidebar = () => {
   const [autoMatches, setAutoMatches] = useState<number>(0);
   const [betAmount, setBetAmount] = useState<number>(0);
 
-  // Fetch user bet summary when round or wallet changes
+  // Fetch user bet summary only on initial load (when round/wallet available) and after placing bet
   const fetchUserBet = useCallback(async () => {
     if (!apiRoundId || !publicKey || !API_BASE) {
       setUserTotalBet('0');
@@ -51,10 +53,9 @@ export const LeftSidebar = () => {
     }
   }, [apiRoundId, publicKey]);
 
+  // Fetch only on mount when dependencies are ready, and when round changes (new round = reset)
   useEffect(() => {
     fetchUserBet();
-    const interval = setInterval(fetchUserBet, 1000);
-    return () => clearInterval(interval);
   }, [fetchUserBet]);
 
   const isManualValid = betAmount > 0 && selectedRacers.length > 0;
@@ -79,10 +80,11 @@ export const LeftSidebar = () => {
       setSelectedRacers([]);
       setBetAmount(0);
       fetchUserBet();
+      refetchBalance?.();
     } catch (err: any) {
       setTxResult({ type: 'error', message: err?.message ?? 'Transaction failed' });
     }
-  }, [canPlaceBet, placeBet, apiRoundId, selectedRacers, betAmount, fetchUserBet]);
+  }, [canPlaceBet, placeBet, apiRoundId, selectedRacers, betAmount, fetchUserBet, refetchBalance]);
 
   // Phase label for display
   const phaseLabel = apiPhase === 'preparation' ? 'Prep' : apiPhase === 'resolution' ? 'Racing' : apiPhase === 'distribution' ? 'Results' : '';
