@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import SolColorIconSvg from '../svgs/SolColorIconSvg';
+import { SolColorIconSvg } from '../svgs';
 
 export const GameHistory = () => {
   const [mounted, setMounted] = useState(false);

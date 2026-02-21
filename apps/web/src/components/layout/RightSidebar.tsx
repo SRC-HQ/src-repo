@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useGameStore } from '../../store/gameStore';
 import { prettyTruncate } from '../../utils/format';
-import SolColorIconSvg from '../svgs/SolColorIconSvg';
+import { SolColorIconSvg } from '../svgs';
 
 const CopyIcon = ({ className }: { className?: string }) => (
   <svg
