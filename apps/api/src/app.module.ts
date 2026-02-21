@@ -13,6 +13,8 @@ import { BetHistoryModule } from './modules/bet-history/bet-history.module';
 import { RoundHistoryModule } from './modules/round-history/round-history.module';
 import { DistributionHistoryModule } from './modules/distribution-history/distribution-history.module';
 import { UserModule } from './modules/user/user.module';
+import { ChatModule } from './modules/chat/chat.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -55,6 +57,7 @@ import { UserModule } from './modules/user/user.module';
     RoundHistoryModule,
     DistributionHistoryModule,
     UserModule,
+    ChatModule,
   ],
 })
 export class AppModule {}
