@@ -60,6 +60,10 @@ export class RaceScene implements Scene {
   }
 
   destroy() {
-    this.container.destroy({ children: true });
+    try {
+      if (this.container && !this.container.destroyed) {
+        this.container.destroy({ children: true });
+      }
+    } catch (_) { /* already destroyed */ }
   }
 }

@@ -94,7 +94,7 @@ export const RaceGame = () => {
 
         {/* CANVAS START */}
         <div id="canvasHolder" className="relative">
-          <canvas id="gameCanvas" width="1280" height="768"></canvas>
+          <canvas id="gameCanvas" width="1280" height="768" style={{ display: 'none' }}></canvas>
           
           {/* Loading Overlay */}
           {(!isStateSynced || !isLegacyReady) && (

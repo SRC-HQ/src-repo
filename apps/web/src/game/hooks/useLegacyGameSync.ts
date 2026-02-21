@@ -5,6 +5,13 @@ declare global {
   interface Window {
     GameBridge: {
       setResults: (results: number[]) => void;
+      setRacePhaseData?: (
+        phaseStartedAt: number,
+        phaseEndsAt: number,
+        phaseReceivedAt: number,
+        raceParams: { baseSpeed: number; segments?: { from: number; to: number; mult: number }[] }[],
+        leaderboard?: number[],
+      ) => void;
       startRace: () => void;
       updateBalance: (balance: number) => void;
       setMode: (mode: string) => void;
@@ -21,6 +28,11 @@ export const useLegacyGameSync = (isReady: boolean = false) => {
   const isStateSynced = useGameStore((state) => state.isStateSynced);
   const serverFinished = useGameStore((state) => state.serverFinished);
   const lastDistribution = useGameStore((state) => state.lastDistribution);
+  const apiPhaseStartedAt = useGameStore((state) => state.apiPhaseStartedAt);
+  const apiPhaseEndsAt = useGameStore((state) => state.apiPhaseEndsAt);
+  const apiPhaseReceivedAt = useGameStore((state) => state.apiPhaseReceivedAt);
+  const raceParams = useGameStore((state) => state.raceParams);
+  const leaderboard = useGameStore((state) => state.leaderboard);
   const prevMode = useRef(mode);
   const isInitialized = useRef(false);
 
@@ -63,15 +75,17 @@ export const useLegacyGameSync = (isReady: boolean = false) => {
       // If refreshed during RACE, restore state
       if (mode === 'RACE') {
           const now = Date.now();
-          const elapsed = now - startTime;
-          const duration = 28000; // 28 seconds race duration
+          const effectiveStart = apiPhaseReceivedAt || apiPhaseStartedAt || startTime;
+          const elapsed = now - effectiveStart;
+          const duration = apiPhaseEndsAt > apiPhaseStartedAt
+            ? apiPhaseEndsAt - apiPhaseStartedAt
+            : 28000;
           const progress = Math.min(100, Math.max(0, (elapsed / duration) * 100));
-          
+
           if (window.GameBridge.restoreGame) {
             console.log("Restoring race with progress:", progress, "elapsed:", elapsed);
-            // Convert racers map to array for easier handling in legacy js
             const racersList = Object.values(racers || {});
-            window.GameBridge.restoreGame(progress, elapsed, racersList, startTime, serverFinished);
+            window.GameBridge.restoreGame(progress, elapsed, racersList, effectiveStart, serverFinished);
           } else {
             window.GameBridge.startRace();
           }
@@ -82,7 +96,7 @@ export const useLegacyGameSync = (isReady: boolean = false) => {
       return;
     }
 
-    // Handle Mode Changes
+    // Handle mode changes
     if (prevMode.current !== mode) {
       if (lastDistribution && lastDistribution.result) {
          let results: number[] = [];
@@ -104,6 +118,22 @@ export const useLegacyGameSync = (isReady: boolean = false) => {
       prevMode.current = mode;
     }
   }, [mode, isReady, isStateSynced, lastDistribution]);
+
+  // Push race phase data + leaderboard to vanilla game for socket-driven positions and leaderboard
+  useEffect(() => {
+    if (!isReady || !window.GameBridge?.setRacePhaseData) return;
+    if (mode !== 'RACE') return;
+    if (apiPhaseStartedAt <= 0 || apiPhaseEndsAt <= 0) return;
+    if (!raceParams || raceParams.length < 10) return;
+
+    window.GameBridge.setRacePhaseData(
+      apiPhaseStartedAt,
+      apiPhaseEndsAt,
+      apiPhaseReceivedAt || apiPhaseStartedAt,
+      raceParams,
+      leaderboard || [],
+    );
+  }, [isReady, mode, apiPhaseStartedAt, apiPhaseEndsAt, apiPhaseReceivedAt, raceParams, leaderboard]);
 
   // Sync Balance (if available in store)
   // const balance = useGameStore((state) => state.balance);
