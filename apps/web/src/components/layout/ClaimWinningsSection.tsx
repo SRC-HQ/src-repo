@@ -53,17 +53,16 @@ export const ClaimWinningsSection = () => {
     }
   }, [publicKey]);
 
-  // Poll unclaimed distributions: every 1s during distribution phase, else every 3s
+  // Fetch unclaimed only when socket receives phase:update to distribution (no polling)
   useEffect(() => {
     if (!publicKey) {
       setUnclaimedRecords([]);
       setTotalWinningAmount('0');
       return;
     }
-    const isDistribution = apiPhase === 'distribution';
-    fetchUnclaimedDistributions();
-    const interval = setInterval(fetchUnclaimedDistributions, isDistribution ? 1000 : 3000);
-    return () => clearInterval(interval);
+    if (apiPhase === 'distribution') {
+      fetchUnclaimedDistributions();
+    }
   }, [apiPhase, publicKey, fetchUnclaimedDistributions]);
 
   const handleClaimWinnings = useCallback(async () => {
