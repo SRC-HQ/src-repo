@@ -1,8 +1,42 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
 import { prettyTruncate } from '../../utils/format';
-import SolColorIconSvg from '../svgs/SolColorIconSvg';
+import { SolColorIconSvg } from '../svgs';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+
+const AVATAR_COLORS = [
+  'bg-red-500',
+  'bg-blue-500',
+  'bg-green-500',
+  'bg-yellow-500',
+  'bg-purple-500',
+  'bg-pink-500',
+  'bg-indigo-500',
+  'bg-orange-500',
+  'bg-teal-500',
+  'bg-cyan-500',
+];
+
+function getAvatarColor(address: string): string {
+  let hash = 0;
+  for (let i = 0; i < address.length; i++) {
+    hash = (hash << 5) - hash + address.charCodeAt(i);
+    hash |= 0;
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function formatChatTime(date: Date): string {
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  if (diff < 60 * 1000) return 'Just now';
+  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / (60 * 1000))}m ago`;
+  if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / (60 * 60 * 1000))}h ago`;
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
 const CopyIcon = ({ className }: { className?: string }) => (
   <svg
@@ -41,6 +75,7 @@ const CheckIcon = ({ className }: { className?: string }) => (
 
 const ProfileHoverCard = ({
   name,
+  address,
   avatarColor,
   position,
   isVisible,
@@ -48,19 +83,19 @@ const ProfileHoverCard = ({
   onMouseLeave,
 }: {
   name: string;
+  address: string;
   avatarColor: string;
   position: { top?: number; bottom?: number; left: number; transformOrigin: string };
   isVisible: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }) => {
-  // Mock data for display
-  const address = 'nY57...bzI8';
+  const displayAddress = address?.includes('...') ? address : prettyTruncate(address || '', 4, 4);
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
     setIsCopied(true);
-    navigator.clipboard.writeText(address); // Actually copy text
+    navigator.clipboard.writeText(address);
     setTimeout(() => {
       setIsCopied(false);
     }, 1000);
@@ -90,7 +125,7 @@ const ProfileHoverCard = ({
         <div className="min-w-0 flex-1 flex flex-col justify-center">
           <h3 className="font-bold text-white text-base truncate font-mono">{name}</h3>
           <div className="flex items-center gap-2 text-gray-400 text-xs">
-            <span className="font-mono">{address}</span>
+            <span className="font-mono">{displayAddress}</span>
             <button
               onClick={handleCopy}
               className={`transition-colors ${isCopied ? 'text-white cursor-default' : 'hover:text-white cursor-pointer'}`}
@@ -142,6 +177,7 @@ const ProfileHoverCard = ({
 
 const ChatBubble = ({
   name,
+  userAddress,
   message,
   time,
   avatarColor = 'bg-gray-600',
@@ -149,6 +185,7 @@ const ChatBubble = ({
   onAvatarLeave,
 }: {
   name: string;
+  userAddress: string;
   message: string;
   time: string;
   avatarColor?: string;
@@ -159,7 +196,7 @@ const ChatBubble = ({
     <div className="relative">
       <div
         className={`w-8 h-8 rounded-full ${avatarColor} flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/20 transition-all`}
-        onMouseEnter={onAvatarEnter}
+        onMouseEnter={(e) => onAvatarEnter(e)}
         onMouseLeave={onAvatarLeave}
       />
     </div>
@@ -173,15 +210,26 @@ const ChatBubble = ({
   </div>
 );
 
+export interface ChatMessage {
+  id: string;
+  user_address: string;
+  message: string;
+  created_at: string;
+}
+
 export const RightSidebar = () => {
   const { isWalletConnected } = useGameStore();
+  const { publicKey, wallet } = useWallet();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Profile Hover State
   const [hoveredProfile, setHoveredProfile] = useState<{
     name: string;
+    address: string;
     avatarColor: string;
     position: { top?: number; bottom?: number; left: number; transformOrigin: string };
   } | null>(null);
@@ -189,7 +237,7 @@ export const RightSidebar = () => {
   const hoverTimeoutRef = useRef<NodeJS.Timeout>();
   const unmountTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const handleProfileEnter = (e: React.MouseEvent, name: string, avatarColor: string) => {
+  const handleProfileEnter = (e: React.MouseEvent, name: string, address: string, avatarColor: string) => {
     // Clear any pending timeouts
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     if (unmountTimeoutRef.current) clearTimeout(unmountTimeoutRef.current);
@@ -218,6 +266,7 @@ export const RightSidebar = () => {
 
     setHoveredProfile({
       name,
+      address,
       avatarColor,
       position,
     });
@@ -254,82 +303,71 @@ export const RightSidebar = () => {
     };
   }, []);
 
-  useEffect(() => {
-    // Generate 50 mock messages on client side only to avoid hydration mismatch
-    const msgs = [];
-    const walletChars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    const names = [
-      'MoonWalker',
-      'SpeedDemon',
-      'CryptoKing',
-      'WhaleWatcher',
-      'RacerX',
-      'HodlGang',
-      'ToTheMoon',
-      'DiamondHands',
-    ];
-    const chatMessages = [
-      'LFG!!!',
-      'Which one is winning?',
-      'Betting on #4',
-      'Just won 5 SOL',
-      'This is intense!',
-      'Anyone else lagging?',
-      'Claimed my winnings!',
-      'Blue is fast today',
-      'Red looks tired',
-      'When is the next race?',
-      'HODL',
-      'Nice race!',
-      'GG',
-      'Unlucky...',
-      'Next time!',
-      'Yea it scales linearly.',
-      'Someone did the math.',
-      'Only advantageous to claim ur uORE after like 6 years.',
-      'Otherwise uORE is always king.',
-      'Wait for the dip.',
-    ];
-    const colors = [
-      'bg-red-500',
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-yellow-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-indigo-500',
-      'bg-orange-500',
-      'bg-teal-500',
-      'bg-cyan-500',
-    ];
-
-    for (let i = 0; i < 50; i++) {
-      const isWallet = Math.random() > 0.4; // 60% chance of wallet address
-      let name = '';
-
-      if (isWallet) {
-        let addr = '';
-        for (let j = 0; j < 44; j++)
-          addr += walletChars.charAt(Math.floor(Math.random() * walletChars.length));
-        name = prettyTruncate(addr, 4, 4);
-      } else {
-        name = names[Math.floor(Math.random() * names.length)] + Math.floor(Math.random() * 100);
+  const fetchChats = useCallback(async () => {
+    if (!API_BASE) return;
+    try {
+      const res = await fetch(`${API_BASE}/chats?limit=100`);
+      if (res.ok) {
+        const json = await res.json();
+        setMessages(json.data ?? []);
       }
-
-      msgs.push({
-        id: i,
-        name,
-        message: chatMessages[Math.floor(Math.random() * chatMessages.length)],
-        time: `${Math.floor(Math.random() * 24)
-          .toString()
-          .padStart(2, '0')}:${Math.floor(Math.random() * 60)
-          .toString()
-          .padStart(2, '0')}`,
-        avatarColor: colors[Math.floor(Math.random() * colors.length)],
-      });
+    } catch (e) {
+      console.error('[RightSidebar] Failed to fetch chats:', e);
     }
-    setMessages(msgs);
   }, []);
+
+  useEffect(() => {
+    fetchChats();
+    const interval = setInterval(fetchChats, 3000);
+    return () => clearInterval(interval);
+  }, [fetchChats]);
+
+  const handleSend = useCallback(async () => {
+    const text = message.trim();
+    if (!text || !publicKey || !wallet?.adapter || !API_BASE) return;
+
+    const adapter = wallet.adapter as { signMessage?: (message: Uint8Array) => Promise<Uint8Array> };
+    if (!adapter.signMessage) {
+      setSendError('Your wallet does not support message signing');
+      return;
+    }
+
+    setSending(true);
+    setSendError(null);
+
+    try {
+      const address = publicKey.toBase58();
+      const timestamp = Date.now();
+      const messageToSign = `sperm-race-chat\n${address}\n${text}\n${timestamp}`;
+      const encodedMessage = new TextEncoder().encode(messageToSign);
+      const signature = await adapter.signMessage(encodedMessage);
+
+      const signatureBase64 = btoa(String.fromCharCode(...signature));
+
+      const res = await fetch(`${API_BASE}/chats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          address,
+          signature: signatureBase64,
+          timestamp,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || res.statusText || 'Failed to send');
+      }
+      setMessage('');
+      fetchChats();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to send message';
+      setSendError(msg);
+    } finally {
+      setSending(false);
+    }
+  }, [message, publicKey, wallet, fetchChats]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -342,11 +380,15 @@ export const RightSidebar = () => {
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4" ref={scrollRef}>
         <div className="flex flex-col">
-          {messages.map((msg) => (
+          {messages.slice().reverse().map((msg) => (
             <ChatBubble
               key={msg.id}
-              {...msg}
-              onAvatarEnter={(e) => handleProfileEnter(e, msg.name, msg.avatarColor)}
+              name={prettyTruncate(msg.user_address, 4, 4)}
+              userAddress={msg.user_address}
+              message={msg.message}
+              time={formatChatTime(new Date(msg.created_at))}
+              avatarColor={getAvatarColor(msg.user_address)}
+              onAvatarEnter={(e) => handleProfileEnter(e, prettyTruncate(msg.user_address, 4, 4), msg.user_address, getAvatarColor(msg.user_address))}
               onAvatarLeave={handleProfileLeave}
             />
           ))}
@@ -357,6 +399,7 @@ export const RightSidebar = () => {
       {hoveredProfile && (
         <ProfileHoverCard
           name={hoveredProfile.name}
+          address={hoveredProfile.address}
           avatarColor={hoveredProfile.avatarColor}
           position={hoveredProfile.position}
           isVisible={isCardVisible}
@@ -366,24 +409,34 @@ export const RightSidebar = () => {
       )}
 
       {/* Input Area */}
-      <div className="p-4 border-t border-white/10 bg-game-bg">
-        <div className="relative">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            disabled={!isWalletConnected}
-            placeholder={
-              isWalletConnected ? 'Type your message...' : 'Connect your wallet to chat...'
+      <div className="p-4 border-t border-white/10 bg-game-bg space-y-2">
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
             }
-            className={`w-full bg-transparent border-none text-sm focus:ring-0 px-0 py-2 placeholder:text-gray-500 font-mono ${!isWalletConnected ? 'cursor-not-allowed opacity-50' : 'text-white'}`}
-          />
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <div
-              className={`w-3 h-3 rounded-full border ${isWalletConnected ? 'bg-green-500 border-green-400' : 'border-gray-600'}`}
-            ></div>
-          </div>
-        </div>
+          }}
+          disabled={!isWalletConnected}
+          placeholder={
+            isWalletConnected ? 'Type your message...' : 'Connect your wallet to chat...'
+          }
+          className={`w-full bg-transparent border border-white/10 rounded-lg px-3 py-2 text-sm focus:ring-0 focus:border-white/30 placeholder:text-gray-500 font-mono ${!isWalletConnected ? 'cursor-not-allowed opacity-50' : 'text-white'}`}
+        />
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={!isWalletConnected || !message.trim() || sending}
+          className="w-full py-2.5 px-4 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/10 rounded-lg text-sm font-mono font-medium text-white transition-colors"
+        >
+          {sending ? 'Sending...' : 'Send'}
+        </button>
+        {sendError && (
+          <p className="text-xs text-red-400 font-mono">{sendError}</p>
+        )}
       </div>
     </div>
   );

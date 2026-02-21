@@ -225,7 +225,8 @@ export class RoundHistoryService {
           spermId,
           payload.signature,
         );
-        break; // one ClaimWinningsEvent per tx
+
+        continue
       }
     }
   }

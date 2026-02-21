@@ -4,9 +4,8 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useGameStore } from '../../store/gameStore';
-import SolColorIconSvg from '../svgs/SolColorIconSvg';
-import XIcon from '../svgs/XIcon';
-import DiscordIcon from '../svgs/DiscordIcon';
+import { DiscordIcon, SolColorIconSvg, XIcon } from '../svgs';
+import { LeaderboardModal } from './LeaderboardModal';
 
 export const Navbar = () => {
   const { connection } = useConnection();
@@ -14,6 +13,7 @@ export const Navbar = () => {
   const { setVisible } = useWalletModal();
   const { setWalletConnected, hasWinnings } = useGameStore();
   const [balance, setBalance] = useState<number | null>(null);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -78,7 +78,10 @@ export const Navbar = () => {
           >
             About
           </a>
-          <button className="text-white/60 hover:text-white transition-colors text-xs font-sans uppercase tracking-wider font-bold">
+          <button
+            className="text-white/60 hover:text-white transition-colors text-xs font-sans uppercase tracking-wider font-bold"
+            onClick={() => setIsLeaderboardOpen(true)}
+          >
             Leaderboard
           </button>
         </nav>
@@ -144,7 +147,8 @@ export const Navbar = () => {
           )}
         </div>
       </div>
+
+      <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setIsLeaderboardOpen(false)} />
     </div>
   );
 };
-
