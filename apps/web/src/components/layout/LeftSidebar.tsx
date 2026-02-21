@@ -85,7 +85,7 @@ export const LeftSidebar = () => {
   }, [canPlaceBet, placeBet, apiRoundId, selectedRacers, betAmount, fetchUserBet]);
 
   // Phase label for display
-  const phaseLabel = apiPhase === 'preparation' ? 'Preparation' : apiPhase === 'resolution' ? 'Racing' : apiPhase === 'distribution' ? 'Results' : '';
+  const phaseLabel = apiPhase === 'preparation' ? 'Prep' : apiPhase === 'resolution' ? 'Racing' : apiPhase === 'distribution' ? 'Results' : '';
 
   useEffect(() => {
     const updateTimer = () => {

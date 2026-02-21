@@ -44,8 +44,13 @@ export class SceneManager {
 
   switchScene(mode: GameMode) {
     if (this.currentScene) {
+      const oldContainer = this.currentScene.container;
       this.currentScene.destroy();
-      this.sceneContainer.removeChild(this.currentScene.container);
+      try {
+        if (oldContainer && !oldContainer.destroyed && oldContainer.parent === this.sceneContainer) {
+          this.sceneContainer.removeChild(oldContainer);
+        }
+      } catch (_) { /* already removed */ }
       this.currentScene = null;
     }
 
