@@ -4,6 +4,7 @@ import { PublicKey, SystemProgram, LAMPORTS_PER_SOL, Transaction } from '@solana
 import { Program, AnchorProvider, BN, Idl } from '@coral-xyz/anchor';
 import { SpermRace } from '@sperm-race/contract-types';
 import * as IDL from '@sperm-race/contract-types/idl';
+import { useWalletBalance } from './useWalletBalance';
 
 const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_PROGRAM_ID ?? '2y2AdrVLKqwcA5GQEC1ULEHac3hH9ck565UBqzPaReJZ',
@@ -12,9 +13,9 @@ const PROGRAM_ID = new PublicKey(
 export const useRaceContract = () => {
   const { connection } = useConnection();
   const { publicKey, wallet } = useWallet();
+  const { refetch: refetchBalance } = useWalletBalance();
 
   const [program, setProgram] = useState<Program<SpermRace> | null>(null);
-  const [balance, setBalance] = useState<number | null>(null);
   const [babyKingTotal, setBabyKingTotal] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,24 +36,6 @@ export const useRaceContract = () => {
     const programInstance = new Program<SpermRace>(idlWithProgramId as Idl, provider);
     setProgram(programInstance);
   }, [connection, wallet]);
-
-  useEffect(() => {
-    if (!publicKey || !connection) {
-      setBalance(null);
-      return;
-    }
-    const fetchBalance = async () => {
-      try {
-        const balance = await connection.getBalance(publicKey);
-        setBalance(balance);
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchBalance();
-    const interval = setInterval(fetchBalance, 5000);
-    return () => clearInterval(interval);
-  }, [publicKey, connection]);
 
   // PDA Helpers
   const getRoundAccountPda = useCallback((roundId: number): PublicKey => {
@@ -113,7 +96,7 @@ export const useRaceContract = () => {
       }
     };
     fetchBabyKing();
-    const interval = setInterval(fetchBabyKing, 5000);
+    const interval = setInterval(fetchBabyKing, 10000);
     return () => clearInterval(interval);
   }, [program, getBabyKingVaultPda]);
 
@@ -190,9 +173,7 @@ export const useRaceContract = () => {
           } as any)
           .rpc();
 
-        // Refresh balance
-        const newBalance = await connection.getBalance(publicKey);
-        setBalance(newBalance);
+        await refetchBalance?.();
 
         setLoading(false);
         return tx;
@@ -203,7 +184,7 @@ export const useRaceContract = () => {
         throw err;
       }
     },
-    [publicKey, program, connection, getRoundAccountPda, getBetRecordPda, getGlobalStatePda, getBabyKingVaultPda],
+    [publicKey, program, refetchBalance, getRoundAccountPda, getBetRecordPda, getGlobalStatePda, getBabyKingVaultPda],
   );
 
   /** Batch claim multiple winnings in a single transaction */
@@ -246,8 +227,7 @@ export const useRaceContract = () => {
         }
 
         const tx = await program.provider.sendAndConfirm!(transaction);
-        const newBalance = await connection.getBalance(publicKey);
-        setBalance(newBalance);
+        await refetchBalance?.();
         setLoading(false);
         return tx;
       } catch (err: any) {
@@ -257,11 +237,10 @@ export const useRaceContract = () => {
         throw err;
       }
     },
-    [publicKey, program, connection, getRoundAccountPda, getBetRecordPda, getGlobalStatePda, getBabyKingVaultPda],
+    [publicKey, program, refetchBalance, getRoundAccountPda, getBetRecordPda, getGlobalStatePda, getBabyKingVaultPda],
   );
 
   return {
-    balance,
     babyKingTotal,
     placeBet,
     claimWinnings,

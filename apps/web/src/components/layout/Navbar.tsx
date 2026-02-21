@@ -1,19 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import Image from 'next/image';
-import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useGameStore } from '../../store/gameStore';
+import { useWalletBalance } from '../../hooks/useWalletBalance';
 import { DiscordIcon, SolColorIconSvg, XIcon } from '../svgs';
 import { LeaderboardModal } from './LeaderboardModal';
 
 export const Navbar = () => {
-  const { connection } = useConnection();
   const { publicKey, connected, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
   const { setWalletConnected, hasWinnings } = useGameStore();
-  const [balance, setBalance] = useState<number | null>(null);
-  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const { balance } = useWalletBalance();
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -31,24 +30,6 @@ export const Navbar = () => {
       body: JSON.stringify({ address }),
     }).catch((e) => console.error('[Navbar] createOrGetUser failed:', e));
   }, [connected, publicKey, API_BASE]);
-
-  useEffect(() => {
-    if (!publicKey || !connection) {
-      setBalance(null);
-      return;
-    }
-    const fetchBalance = async () => {
-      try {
-        const bal = await connection.getBalance(publicKey);
-        setBalance(bal);
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchBalance();
-    const interval = setInterval(fetchBalance, 5000);
-    return () => clearInterval(interval);
-  }, [publicKey, connection]);
 
   return (
     <div className="h-16 flex-shrink-0 bg-game-bg border-b border-white/10 flex items-center justify-between px-4 z-50">

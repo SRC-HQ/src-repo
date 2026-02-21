@@ -303,8 +303,10 @@ export const RightSidebar = () => {
     };
   }, []);
 
+  const fetchChatsInFlightRef = useRef(false);
   const fetchChats = useCallback(async () => {
-    if (!API_BASE) return;
+    if (!API_BASE || fetchChatsInFlightRef.current) return;
+    fetchChatsInFlightRef.current = true;
     try {
       const res = await fetch(`${API_BASE}/chats?limit=100`);
       if (res.ok) {
@@ -313,13 +315,22 @@ export const RightSidebar = () => {
       }
     } catch (e) {
       console.error('[RightSidebar] Failed to fetch chats:', e);
+    } finally {
+      fetchChatsInFlightRef.current = false;
     }
   }, []);
 
+  // Poll chats every 10s; refetch after send (handleSend calls fetchChats on success)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     fetchChats();
-    const interval = setInterval(fetchChats, 3000);
-    return () => clearInterval(interval);
+    intervalRef.current = setInterval(fetchChats, 10000);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [fetchChats]);
 
   const handleSend = useCallback(async () => {
