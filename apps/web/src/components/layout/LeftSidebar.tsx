@@ -5,10 +5,9 @@ import { useGameStore } from '../../store/gameStore';
 import { useRaceContract } from '../../hooks/useRaceContract';
 import { useWalletBalance } from '../../hooks/useWalletBalance';
 import SpmSwimSprite from '../sprites/SpmSwimSprite';
-import SolColorIconSvg from '../svgs/SolColorIconSvg';
-import { RACER_COLORS } from '../../game/constants';
 import { ClaimWinningsSection } from './ClaimWinningsSection';
 import { TxResultPopover } from '../ui/TxResultPopover';
+import { SolColorIconSvg } from '../svgs';
 
 const LAMPORTS_PER_SOL = 1e9;
 
@@ -45,7 +44,10 @@ export const LeftSidebar = () => {
       const res = await fetch(
         `${API_BASE}/game/round/${apiRoundId}/user-summary/${publicKey.toBase58()}`,
       );
-      if (!res.ok) { setUserTotalBet('0'); return; }
+      if (!res.ok) {
+        setUserTotalBet('0');
+        return;
+      }
       const data = await res.json();
       setUserTotalBet(data.total_bet ?? '0');
     } catch {
@@ -69,7 +71,9 @@ export const LeftSidebar = () => {
     !loading &&
     betMode === 'manual'; // Auto mode (multi-round) not implemented on-chain yet
 
-  const [txResult, setTxResult] = useState<{ type: 'success'; txHash: string } | { type: 'error'; message: string } | null>(null);
+  const [txResult, setTxResult] = useState<
+    { type: 'success'; txHash: string } | { type: 'error'; message: string } | null
+  >(null);
 
   const handlePlaceBet = useCallback(async () => {
     if (!canPlaceBet) return;
@@ -87,7 +91,14 @@ export const LeftSidebar = () => {
   }, [canPlaceBet, placeBet, apiRoundId, selectedRacers, betAmount, fetchUserBet, refetchBalance]);
 
   // Phase label for display
-  const phaseLabel = apiPhase === 'preparation' ? 'Prep' : apiPhase === 'resolution' ? 'Racing' : apiPhase === 'distribution' ? 'Results' : '';
+  const phaseLabel =
+    apiPhase === 'preparation'
+      ? 'Prep'
+      : apiPhase === 'resolution'
+        ? 'Racing'
+        : apiPhase === 'distribution'
+          ? 'Results'
+          : '';
 
   useEffect(() => {
     const updateTimer = () => {
@@ -98,7 +109,9 @@ export const LeftSidebar = () => {
         const remainingMs = Math.max(0, apiPhaseEndsAt - serverNow);
         const totalSeconds = Math.floor(remainingMs / 1000);
         const clamped = Math.min(totalSeconds, 59 * 60 + 59);
-        const mins = Math.floor(clamped / 60).toString().padStart(2, '0');
+        const mins = Math.floor(clamped / 60)
+          .toString()
+          .padStart(2, '0');
         const secs = (clamped % 60).toString().padStart(2, '0');
         setTimeLeft(`${mins}:${secs}`);
       } else {
@@ -143,9 +156,7 @@ export const LeftSidebar = () => {
             <div className="flex items-center gap-1 mb-1">
               <SolColorIconSvg className="w-4 h-4" />
               <span className="font-bold text-base font-sans">
-                {hasApiState
-                  ? (Number(apiTotalPot) / LAMPORTS_PER_SOL).toFixed(4)
-                  : '0.0000'}
+                {hasApiState ? (Number(apiTotalPot) / LAMPORTS_PER_SOL).toFixed(4) : '0.0000'}
               </span>
             </div>
             <span className="text-[10px] font-sans tracking-wider text-white/60">Prize Pool</span>
@@ -156,14 +167,10 @@ export const LeftSidebar = () => {
             <div className="flex items-center gap-1 mb-1">
               <SolColorIconSvg className="w-4 h-4" />
               <span className="font-bold text-base font-sans">
-                {publicKey
-                  ? (Number(userTotalBet) / LAMPORTS_PER_SOL).toFixed(4)
-                  : '--'}
+                {publicKey ? (Number(userTotalBet) / LAMPORTS_PER_SOL).toFixed(4) : '--'}
               </span>
             </div>
-            <span className="text-[10px] font-sans tracking-wider text-white/60">
-              Your Pot
-            </span>
+            <span className="text-[10px] font-sans tracking-wider text-white/60">Your Pot</span>
           </div>
         </div>
 

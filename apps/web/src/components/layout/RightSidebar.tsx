@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
 import { prettyTruncate } from '../../utils/format';
-import SolColorIconSvg from '../svgs/SolColorIconSvg';
+import { SolColorIconSvg } from '../svgs';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
