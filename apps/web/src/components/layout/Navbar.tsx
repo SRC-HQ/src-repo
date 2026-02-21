@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
@@ -13,6 +13,7 @@ export const Navbar = () => {
   const { setVisible } = useWalletModal();
   const { setWalletConnected, hasWinnings } = useGameStore();
   const { balance } = useWalletBalance();
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
