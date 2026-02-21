@@ -1,4 +1,5 @@
 import * as React from 'react';
+
 const SolColorIconSvg = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     width={313}

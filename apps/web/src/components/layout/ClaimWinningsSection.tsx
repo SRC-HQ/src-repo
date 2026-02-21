@@ -4,8 +4,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
 import { useRaceContract } from '../../hooks/useRaceContract';
-import SolColorIconSvg from '../svgs/SolColorIconSvg';
 import { TxResultPopover } from '../ui/TxResultPopover';
+import { SolColorIconSvg } from '../svgs';
 
 const LAMPORTS_PER_SOL = 1e9;
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
@@ -26,7 +26,9 @@ export const ClaimWinningsSection = () => {
 
   const [unclaimedRecords, setUnclaimedRecords] = useState<UnclaimedRecord[]>([]);
   const [totalWinningAmount, setTotalWinningAmount] = useState<string>('0');
-  const [claimTxResult, setClaimTxResult] = useState<{ type: 'success'; txHash: string } | { type: 'error'; message: string } | null>(null);
+  const [claimTxResult, setClaimTxResult] = useState<
+    { type: 'success'; txHash: string } | { type: 'error'; message: string } | null
+  >(null);
   const [isClaiming, setIsClaiming] = useState(false);
 
   const fetchUnclaimedDistributions = useCallback(async () => {
@@ -36,9 +38,7 @@ export const ClaimWinningsSection = () => {
       return;
     }
     try {
-      const res = await fetch(
-        `${API_BASE}/distribution-history/unclaimed/${publicKey.toBase58()}`,
-      );
+      const res = await fetch(`${API_BASE}/distribution-history/unclaimed/${publicKey.toBase58()}`);
       if (!res.ok) {
         setUnclaimedRecords([]);
         setTotalWinningAmount('0');
@@ -120,7 +120,9 @@ export const ClaimWinningsSection = () => {
         disabled={!connected || loading || isClaiming}
         className="w-full py-2.5 font-bold font-sans rounded-full bg-yellow-500 hover:bg-yellow-400 text-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
-        {isClaiming ? 'Claiming...' : `Claim ${unclaimedRecords.length} Winning${unclaimedRecords.length > 1 ? 's' : ''}`}
+        {isClaiming
+          ? 'Claiming...'
+          : `Claim ${unclaimedRecords.length} Winning${unclaimedRecords.length > 1 ? 's' : ''}`}
       </button>
     </div>
   );
