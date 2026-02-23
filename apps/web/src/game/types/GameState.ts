@@ -16,4 +16,5 @@ export interface GameState {
   lastDistribution?: any; // Define proper type if possible, or use any for now
   isStateSynced?: boolean;
   serverFinished?: boolean;
+  debugFreezeAtFinish?: boolean;
 }

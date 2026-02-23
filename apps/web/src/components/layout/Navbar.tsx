@@ -5,7 +5,9 @@ import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useGameStore } from '../../store/gameStore';
 import { useWalletBalance } from '../../hooks/useWalletBalance';
-import { DiscordIcon, SolColorIconSvg, XIcon } from '../svgs';
+import { DiscordIcon, SolColorIconSvg, XIcon, AvatarDefaultIcon } from '../svgs';
+import type { UserDetail } from '../../network/api-leaderboard';
+import { fetchUserDetail } from '../../network/api-leaderboard';
 import { LeaderboardModal } from './LeaderboardModal';
 
 export const Navbar = () => {
@@ -14,6 +16,7 @@ export const Navbar = () => {
   const { setWalletConnected, hasWinnings } = useGameStore();
   const { balance } = useWalletBalance();
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserDetail | null>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -31,6 +34,28 @@ export const Navbar = () => {
       body: JSON.stringify({ address }),
     }).catch((e) => console.error('[Navbar] createOrGetUser failed:', e));
   }, [connected, publicKey, API_BASE]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!connected || !publicKey) {
+        setCurrentUser(null);
+        return;
+      }
+      try {
+        const user = await fetchUserDetail(publicKey.toBase58());
+        if (cancelled) return;
+        setCurrentUser(user);
+      } catch {
+        if (cancelled) return;
+        setCurrentUser(null);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, publicKey]);
 
   return (
     <div className="h-16 flex-shrink-0 bg-game-bg border-b border-white/10 flex items-center justify-between px-4 z-50">
@@ -116,8 +141,15 @@ export const Navbar = () => {
               className="w-10 h-10 rounded-full border border-white/20 bg-gray-700 flex items-center justify-center overflow-hidden cursor-pointer hover:border-white/40 transition-colors"
               title="Disconnect Wallet"
             >
-              {/* Placeholder Avatar */}
-              <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500"></div>
+              {currentUser?.image ? (
+                <img
+                  src={currentUser.image}
+                  alt={currentUser.x_username || currentUser.username || 'User avatar'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <AvatarDefaultIcon className="w-10 h-10 object-cover" />
+              )}
             </div>
           ) : (
             <button

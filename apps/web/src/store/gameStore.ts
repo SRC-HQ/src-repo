@@ -55,6 +55,7 @@ interface GameStore extends GameState {
   resetApiStateForNewRound: () => void;
   setWalletConnected: (connected: boolean) => void;
   setHasWinnings: (hasWinnings: boolean) => void;
+  setDebugFreezeAtFinish: (freeze: boolean) => void;
 }
 
 const PHASE_TO_MODE: Record<string, GameMode> = {
@@ -73,6 +74,7 @@ const initialState: GameState = {
   lastDistribution: undefined,
   isStateSynced: false,
   serverFinished: false,
+  debugFreezeAtFinish: false,
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -187,4 +189,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }),
   setWalletConnected: (connected: boolean) => set({ isWalletConnected: connected }),
   setHasWinnings: (hasWinnings: boolean) => set({ hasWinnings }),
+  setDebugFreezeAtFinish: (freeze: boolean) => set({ debugFreezeAtFinish: freeze }),
 }));
