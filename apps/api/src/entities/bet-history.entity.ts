@@ -13,6 +13,7 @@ import {
   'round_id',
   'sperm_id',
 ], { unique: true })
+@Index('IDX_bet_history_user_address', ['user_address'])
 export class BetHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;

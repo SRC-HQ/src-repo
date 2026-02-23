@@ -51,3 +51,7 @@ export const REDIS_CHANNELS = {
  * Prevents memory bloat while allowing late-connecting clients a grace window.
  */
 export const ROUND_KEY_TTL = 300; // 5 minutes
+
+/** User stats cache key (total_races, total_winning) - TTL 5min for hot-path reads */
+export const USER_STATS_CACHE_TTL = 300;
+export const userStatsKey = (address: string) => `user:stats:${address.trim()}`;

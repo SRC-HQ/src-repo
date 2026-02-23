@@ -13,6 +13,7 @@ import {
   'user_address',
   'winning_sperm_id',
 ], { unique: true })
+@Index('IDX_distribution_history_user_address', ['user_address'])
 export class DistributionHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;

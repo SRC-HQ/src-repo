@@ -18,6 +18,15 @@ export class UserController {
   }
 
   /**
+   * Fetch user stats: total races participated and total winnings (lamports).
+   * Optimized with Redis cache (5min TTL) for high-frequency calls.
+   */
+  @Get(':address/stats')
+  async getStats(@Param('address') address: string) {
+    return this.userService.getStats(address);
+  }
+
+  /**
    * Fetch a user profile by wallet address.
    */
   @Get(':address')
