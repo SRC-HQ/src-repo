@@ -4,7 +4,14 @@ import { useGameStore } from '../../store/gameStore';
 
 export const DebugPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { isWalletConnected, hasWinnings, setWalletConnected, setHasWinnings } = useGameStore();
+  const {
+    isWalletConnected,
+    hasWinnings,
+    debugFreezeAtFinish,
+    setWalletConnected,
+    setHasWinnings,
+    setDebugFreezeAtFinish,
+  } = useGameStore();
 
   const setMode = (mode: GameMode) => {
     // Directly set store mode for debug — bypasses socket
@@ -76,6 +83,16 @@ export const DebugPanel = () => {
               className="rounded border-gray-600 bg-gray-800"
             />
             <span className="text-xs">Has Winnings</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!debugFreezeAtFinish}
+              onChange={(e) => setDebugFreezeAtFinish(e.target.checked)}
+              className="rounded border-gray-600 bg-gray-800"
+            />
+            <span className="text-xs">Freeze race at finish</span>
           </label>
         </div>
 

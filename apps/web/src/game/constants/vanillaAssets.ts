@@ -33,7 +33,19 @@ export const FIELD_SETTINGS = [
 ];
 
 export const RACER_SETTINGS = Array.from({ length: RACER_COUNT }, (_, i) => ({
-  name: ['President', 'Doctor', 'Astronaut', 'Bartender', 'Teacher', 'Chef', 'Farmer', 'Pilot', 'Artist', 'Scientist'][i] ?? `Racer ${i + 1}`,
+  name:
+    [
+      'President',
+      'Doctor',
+      'Astronaut',
+      'Bartender',
+      'CEO',
+      'Chef',
+      'Farmer',
+      'Engineer',
+      'Artist',
+      'Scientist',
+    ][i] ?? `Racer ${i + 1}`,
   icon: `/game/assets/icon_${String(i + 1).padStart(2, '0')}.png`,
   race: `/game/assets/racer_${String(i + 1).padStart(2, '0')}.png`,
 }));
@@ -75,6 +87,10 @@ export const RACE = {
   /** End-line initial X and Y */
   endlineX: 1310,
   endlineY: 428,
+  endlineTopOffset: 121,
+  endlineBottomOffset: 57,
+  endSpriteOffsetX: 20,
+  endSpriteOffsetY: -240,
   /** vanilla raceSpeed */
   raceSpeed: 480,
 };

@@ -4,10 +4,9 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
 import { useRaceContract } from '../../hooks/useRaceContract';
 import { useWalletBalance } from '../../hooks/useWalletBalance';
-import SpmSwimSprite from '../sprites/SpmSwimSprite';
 import { ClaimWinningsSection } from './ClaimWinningsSection';
 import { TxResultPopover } from '../ui/TxResultPopover';
-import { SolColorIconSvg } from '../svgs';
+import { SolColorIconSvg, RacerIcon, MatchesIcon, BabyKingIconSvg } from '../svgs';
 
 const LAMPORTS_PER_SOL = 1e9;
 
@@ -131,7 +130,7 @@ export const LeftSidebar = () => {
           {/* Baby King */}
           <div className="group rounded-lg border border-white/10 bg-game-card/10 p-3 flex flex-col items-center justify-center">
             <div className="flex items-center gap-2 mb-1">
-              <SpmSwimSprite color="white" animating={false} className="w-6 h-6" />
+              <BabyKingIconSvg className="w-6 h-6 text-[#FFD700]" />
               <span className="font-bold text-base font-sans">
                 {babyKingTotal !== null
                   ? (Number(babyKingTotal) / LAMPORTS_PER_SOL).toFixed(4)
@@ -326,18 +325,7 @@ export const LeftSidebar = () => {
                 {/* Racers Count */}
                 <div className="flex items-center justify-between group">
                   <div className="flex items-center gap-2 text-white/80 group-hover:text-white transition-colors">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="w-5 h-5 opacity-70"
-                    >
-                      <rect x="3" y="3" width="7" height="7" />
-                      <rect x="14" y="3" width="7" height="7" />
-                      <rect x="14" y="14" width="7" height="7" />
-                      <rect x="3" y="14" width="7" height="7" />
-                    </svg>
+                    <RacerIcon className="w-5 h-5 opacity-70" />
                     <span className="font-bold font-sans">Racers</span>
                   </div>
                   <span className="text-2xl font-bold font-sans">{selectedRacers.length}</span>
@@ -346,20 +334,7 @@ export const LeftSidebar = () => {
                 {/* Matches Control */}
                 <div className="flex items-center justify-between group">
                   <div className="flex items-center gap-2 text-white/80 group-hover:text-white transition-colors">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="w-5 h-5 opacity-70"
-                    >
-                      <line x1="8" y1="6" x2="21" y2="6" />
-                      <line x1="8" y1="12" x2="21" y2="12" />
-                      <line x1="8" y1="18" x2="21" y2="18" />
-                      <line x1="3" y1="6" x2="3.01" y2="6" />
-                      <line x1="3" y1="12" x2="3.01" y2="12" />
-                      <line x1="3" y1="18" x2="3.01" y2="18" />
-                    </svg>
+                    <MatchesIcon className="w-5 h-5 opacity-70" />
                     <span className="font-bold font-sans">Matches</span>
                   </div>
                   <input

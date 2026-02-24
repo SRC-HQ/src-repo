@@ -40,7 +40,9 @@ const LAST_LANE_Y = RACE.startY + (RACER_COUNT - 1) * RACE.laneSpaceY;
 const GROUND_END_Y = LAST_LANE_Y + 40;
 
 const SCOREBAR_SCALE = 1.15;
-const SCOREBAR_Y = GROUND_END_Y + 30;
+const SCOREBAR_Y = CANVAS_H * 0.95;
+
+const DEBUG_FINISH_OFFSET_X = 0;
 
 /**
  * Extra width (in logical px) for TilingSprites so they still cover
@@ -81,7 +83,7 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
 
   const dur = apiPhaseEndsAt - apiPhaseStartedAt;
   const hasValid = dur > 0;
-  const effStart = hasValid ? (apiPhaseReceivedAt || apiPhaseStartedAt) : mountTimeRef.current;
+  const effStart = hasValid ? apiPhaseReceivedAt || apiPhaseStartedAt : mountTimeRef.current;
   const effDuration = hasValid ? dur : FALLBACK_DURATION_MS;
   const hasParams = !!(raceParams && raceParams.length >= RACER_COUNT);
 
@@ -89,6 +91,8 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
   const field = FIELD_SETTINGS[fieldIndex];
 
   const sceneRef = useRef<SceneRefs | null>(null);
+  const debugFreezeAtFinish = useGameStore((s) => s.debugFreezeAtFinish ?? false);
+  const freezeAtFinishRef = useRef(false);
 
   const preRaceRef = useRef(preRace);
   preRaceRef.current = preRace;
@@ -114,6 +118,14 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     const sc = sceneRef.current;
     if (!app || !sc) return;
 
+    const isFrozen = freezeAtFinishRef.current;
+    if (debugFreezeAtFinish && isFrozen) {
+      return;
+    }
+    if (!debugFreezeAtFinish && isFrozen) {
+      freezeAtFinishRef.current = false;
+    }
+
     const now = Date.now();
     const deltaMs = now - lastTimeRef.current;
     lastTimeRef.current = now;
@@ -137,7 +149,7 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     };
 
     /* ========== PRE-RACE: entrance animation + idle ========== */
-    if (preRaceRef.current) {
+    if (preRaceRef.current && !debugFreezeAtFinish) {
       const ENTRANCE_DURATION = 1200;
       const STAGGER = 80;
       const entElapsed = now - mountTimeRef.current;
@@ -168,10 +180,10 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     /* ---------- time progress from socket ---------- */
     let elapsed = now - effStart;
     if (elapsed < 0) elapsed = Math.max(0, now - mountTimeRef.current);
-    const t = effDuration > 0 ? Math.min(1, Math.max(0, elapsed) / effDuration) : 0;
+    const baseT = effDuration > 0 ? Math.min(1, Math.max(0, elapsed) / effDuration) : 0;
+    const t = debugFreezeAtFinish ? 1 : baseT;
     const raceProgress = t * 100;
 
-    /* ---------- compute per-racer world-X from socket params ---------- */
     const [rxMin, rxMax] = RACE.rangeX;
     const rawProgs: number[] = [];
     for (let n = 0; n < RACER_COUNT; n++) {
@@ -183,16 +195,17 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     }
 
     /* ---------- time remaining (ms) for time-based cutoffs ---------- */
-    const remainingMs = Math.max(0, effDuration - elapsed);
+    const remainingMs = debugFreezeAtFinish ? 0 : Math.max(0, effDuration - elapsed);
 
     /* ---------- client-side jitter: organic speed variation ---------- */
     const JITTER_FULL_AT = 8000;
     const JITTER_GONE_AT = 4000;
-    const jitterFade = remainingMs > JITTER_FULL_AT
-      ? 1
-      : remainingMs < JITTER_GONE_AT
-        ? 0
-        : (remainingMs - JITTER_GONE_AT) / (JITTER_FULL_AT - JITTER_GONE_AT);
+    const jitterFade =
+      remainingMs > JITTER_FULL_AT
+        ? 1
+        : remainingMs < JITTER_GONE_AT
+          ? 0
+          : (remainingMs - JITTER_GONE_AT) / (JITTER_FULL_AT - JITTER_GONE_AT);
 
     if (jitterFade > 0 && jitterRef.current) {
       const TAU = Math.PI * 2;
@@ -211,9 +224,10 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     const LOCK_FULL_AT = 1500;
     let lockBlend = 0;
     if (remainingMs < LOCK_BLEND_AT && hasParams && raceParams) {
-      const linear = remainingMs < LOCK_FULL_AT
-        ? 1
-        : 1 - (remainingMs - LOCK_FULL_AT) / (LOCK_BLEND_AT - LOCK_FULL_AT);
+      const linear =
+        remainingMs < LOCK_FULL_AT
+          ? 1
+          : 1 - (remainingMs - LOCK_FULL_AT) / (LOCK_BLEND_AT - LOCK_FULL_AT);
       lockBlend = linear * linear * (3 - 2 * linear); // smoothstep easeInOut
     }
 
@@ -224,7 +238,7 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     const racerWorldX: number[] = [];
 
     if (lockBlend > 0 && hasParams && raceParams) {
-      const finalProgs = raceParams.map((p) => p ? progressAtT(p, 1.0) : 0);
+      const finalProgs = raceParams.map((p) => (p ? progressAtT(p, 1.0) : 0));
       const maxFinal = Math.max(...finalProgs, 0.001);
       const minFinal = Math.min(...finalProgs);
       const finalRange = maxFinal - minFinal || 0.001;
@@ -292,7 +306,32 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     const pinX = PIN_RANGE.sX + (raceProgress / 100) * pinLen;
     sc.pin.x = Math.min(pinX, PIN_RANGE.eX);
     sc.pin.y = 32;
-  }, [effStart, effDuration, hasParams, raceParams]);
+
+    if (debugFreezeAtFinish && !freezeAtFinishRef.current) {
+      let leaderIndex = 0;
+      let leaderTargetX = racerWorldX[0] ?? RACE.rangeX[1];
+      for (let n = 1; n < RACER_COUNT; n++) {
+        if (racerWorldX[n] > leaderTargetX) {
+          leaderTargetX = racerWorldX[n];
+          leaderIndex = n;
+        }
+      }
+
+      const finishX = sc.endline.x + DEBUG_FINISH_OFFSET_X;
+      const dx = finishX - leaderTargetX;
+
+      for (let n = 0; n < RACER_COUNT; n++) {
+        const x = racerWorldX[n] + dx;
+        sc.racers[n].x = x;
+        sc.shadows[n].x = x;
+      }
+
+      sc.pin.x = PIN_RANGE.eX;
+
+      freezeAtFinishRef.current = true;
+      return;
+    }
+  }, [effStart, effDuration, hasParams, raceParams, debugFreezeAtFinish]);
 
   /* ====================== init ====================== */
   useEffect(() => {
@@ -319,8 +358,14 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
 
         /* ---------- load textures ---------- */
         const [
-          skyTex, billboardTex, groundTex, endlineTex, endTex, shadowTex,
-          scoreBarTex, scorePinTex,
+          skyTex,
+          billboardTex,
+          groundTex,
+          endlineTex,
+          endTex,
+          shadowTex,
+          scoreBarTex,
+          scorePinTex,
         ] = await Promise.all([
           Assets.load(field.sky),
           Assets.load(field.billboard),
@@ -353,7 +398,7 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
         const sky = mkTile(skyTex, RACE.billboardY - 50, 200);
         world.addChild(sky);
 
-        const billboardH = 300
+        const billboardH = 300;
         const billboard = mkTile(billboardTex, RACE.billboardY, billboardH, 0.75, 0.5);
         world.addChild(billboard);
 
@@ -368,14 +413,27 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
         const endline = new Sprite(endlineTex);
         endline.anchor.set(1, 0);
         endline.x = RACE.endlineX;
-        endline.y = RACE.endlineY - 400;
+
+        const baseTopY = ground ? ground.y : RACE.groundY - 50;
+        const baseBottomY = ground ? ground.y + ground.height : GROUND_END_Y;
+
+        const endlineTargetTopY = baseTopY + RACE.endlineTopOffset;
+        const endlineTargetBottomY = baseBottomY + RACE.endlineBottomOffset;
+
+        endline.y = endlineTargetTopY;
+        const endlineBaseHeight = endline.height;
+        if (endlineBaseHeight > 0) {
+          const endlineNeededHeight = endlineTargetBottomY - endlineTargetTopY;
+          if (endlineNeededHeight > 0) {
+            endline.scale.y = endlineNeededHeight / endlineBaseHeight;
+          }
+        }
         world.addChild(endline);
 
         const endSprite = new Sprite(endTex);
         endSprite.anchor.set(1, 1);
-        endSprite.scale.set(3, 10)
-        endSprite.x = RACE.endlineX + 20;
-        endSprite.y = -300;
+        endSprite.x = RACE.endlineX + RACE.endSpriteOffsetX;
+        endSprite.y = RACE.endlineY + RACE.endSpriteOffsetY;
         world.addChild(endSprite);
 
         /* ---------- shadows + racers ---------- */
@@ -501,10 +559,5 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     );
   }
 
-  return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 w-full h-full z-[10]"
-    />
-  );
+  return <div ref={containerRef} className="absolute inset-0 w-full h-full z-[10]" />;
 };

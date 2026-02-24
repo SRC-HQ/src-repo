@@ -3,7 +3,11 @@ import { createPortal } from 'react-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useGameStore } from '../../store/gameStore';
 import { prettyTruncate } from '../../utils/format';
-import { SolColorIconSvg } from '../svgs';
+import { SolColorIconSvg, AvatarDefaultIcon } from '../svgs';
+import type { UserDetail } from '../../network/api-leaderboard';
+import { fetchUserDetail } from '../../network/api-leaderboard';
+import type { UserStats } from '../../network/api-user';
+import { fetchUserStats } from '../../network/api-user';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -92,6 +96,49 @@ const ProfileHoverCard = ({
 }) => {
   const displayAddress = address?.includes('...') ? address : prettyTruncate(address || '', 4, 4);
   const [isCopied, setIsCopied] = useState(false);
+  const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (!address) {
+        setUserDetail(null);
+        setStats(null);
+        return;
+      }
+
+      try {
+        const [user, userStats] = await Promise.all([
+          fetchUserDetail(address),
+          fetchUserStats(address).catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        setUserDetail(user);
+        setStats(userStats);
+      } catch {
+        if (cancelled) return;
+        setUserDetail(null);
+        setStats(null);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const displayName = userDetail?.x_username || userDetail?.username || name || displayAddress;
+
+  const earningsSol =
+    stats && typeof stats.total_winning === 'string'
+      ? Number(stats.total_winning) / 1_000_000_000
+      : null;
 
   const handleCopy = () => {
     setIsCopied(true);
@@ -120,10 +167,16 @@ const ProfileHoverCard = ({
       {/* Header */}
       <div className="flex gap-3 mb-4">
         <div
-          className={`w-12 h-12 rounded-full ${avatarColor} flex-shrink-0 border-2 border-white/10`}
-        />
+          className={`w-12 h-12 rounded-full flex-shrink-0 border-2 border-white/10 overflow-hidden flex items-center justify-center`}
+        >
+          {userDetail?.image ? (
+            <img src={userDetail.image} alt={displayName} className="w-full h-full object-cover" />
+          ) : (
+            <AvatarDefaultIcon className="w-12 h-12 object-cover" />
+          )}
+        </div>
         <div className="min-w-0 flex-1 flex flex-col justify-center">
-          <h3 className="font-bold text-white text-base truncate font-mono">{name}</h3>
+          <h3 className="font-bold text-white text-base truncate font-mono">{displayName}</h3>
           <div className="flex items-center gap-2 text-gray-400 text-xs">
             <span className="font-mono">{displayAddress}</span>
             <button
@@ -145,29 +198,15 @@ const ProfileHoverCard = ({
           <span className="text-gray-400 text-sm">Earnings</span>
           <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded">
             <SolColorIconSvg className="w-4 h-4" />
-            <span className="text-white font-bold">8.1599</span>
+            <span className="text-white font-bold">
+              {earningsSol !== null ? earningsSol.toFixed(4) : '0.0000'}
+            </span>
           </div>
         </div>
 
         <div className="flex justify-between items-center">
           <span className="text-gray-400 text-sm">Races</span>
-          <span className="text-white font-bold px-2">23</span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400 text-sm">Wallet</span>
-          <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded">
-            <SolColorIconSvg className="w-4 h-4" />
-            <span className="text-white font-bold">8.1599</span>
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400 text-sm">SRC</span>
-          <div className="flex items-center gap-1.5 px-2">
-            <SpermIcon className="w-4 h-4 text-white" />
-            <span className="text-white font-bold">20.4</span>
-          </div>
+          <span className="text-white font-bold px-2">{stats ? stats.total_races : 0}</span>
         </div>
       </div>
     </div>,
@@ -181,6 +220,7 @@ const ChatBubble = ({
   message,
   time,
   avatarColor = 'bg-gray-600',
+  avatarUrl,
   onAvatarEnter,
   onAvatarLeave,
 }: {
@@ -189,16 +229,23 @@ const ChatBubble = ({
   message: string;
   time: string;
   avatarColor?: string;
+  avatarUrl?: string | null;
   onAvatarEnter: (e: React.MouseEvent) => void;
   onAvatarLeave: () => void;
 }) => (
   <div className="flex gap-3 mb-4 group relative">
     <div className="relative">
       <div
-        className={`w-8 h-8 rounded-full ${avatarColor} flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/20 transition-all`}
+        className={`w-8 h-8 rounded-full ${avatarColor} flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/20 transition-all overflow-hidden flex items-center justify-center`}
         onMouseEnter={(e) => onAvatarEnter(e)}
         onMouseLeave={onAvatarLeave}
-      />
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+        ) : (
+          <AvatarDefaultIcon className="w-8 h-8 object-cover" />
+        )}
+      </div>
     </div>
     <div className="flex-1 min-w-0">
       <div className="flex justify-between items-baseline mb-0.5">
@@ -224,6 +271,7 @@ export const RightSidebar = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [avatarMap, setAvatarMap] = useState<Record<string, string | null>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Profile Hover State
@@ -237,7 +285,12 @@ export const RightSidebar = () => {
   const hoverTimeoutRef = useRef<NodeJS.Timeout>();
   const unmountTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const handleProfileEnter = (e: React.MouseEvent, name: string, address: string, avatarColor: string) => {
+  const handleProfileEnter = (
+    e: React.MouseEvent,
+    name: string,
+    address: string,
+    avatarColor: string,
+  ) => {
     // Clear any pending timeouts
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     if (unmountTimeoutRef.current) clearTimeout(unmountTimeoutRef.current);
@@ -320,6 +373,39 @@ export const RightSidebar = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const addresses = Array.from(new Set(messages.map((m) => m.user_address)));
+    const missing = addresses.filter((addr) => !(addr in avatarMap));
+    if (!missing.length) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const results = await Promise.all(
+          missing.map((addr) => fetchUserDetail(addr).catch(() => null)),
+        );
+        if (cancelled) return;
+        setAvatarMap((prev) => {
+          const next = { ...prev };
+          missing.forEach((addr, index) => {
+            const user = results[index];
+            next[addr] = user?.image ?? null;
+          });
+          return next;
+        });
+      } catch {
+        if (cancelled) return;
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, avatarMap]);
+
   // Poll chats every 10s; refetch after send (handleSend calls fetchChats on success)
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
@@ -337,7 +423,9 @@ export const RightSidebar = () => {
     const text = message.trim();
     if (!text || !publicKey || !wallet?.adapter || !API_BASE) return;
 
-    const adapter = wallet.adapter as { signMessage?: (message: Uint8Array) => Promise<Uint8Array> };
+    const adapter = wallet.adapter as {
+      signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
+    };
     if (!adapter.signMessage) {
       setSendError('Your wallet does not support message signing');
       return;
@@ -391,18 +479,29 @@ export const RightSidebar = () => {
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4" ref={scrollRef}>
         <div className="flex flex-col">
-          {messages.slice().reverse().map((msg) => (
-            <ChatBubble
-              key={msg.id}
-              name={prettyTruncate(msg.user_address, 4, 4)}
-              userAddress={msg.user_address}
-              message={msg.message}
-              time={formatChatTime(new Date(msg.created_at))}
-              avatarColor={getAvatarColor(msg.user_address)}
-              onAvatarEnter={(e) => handleProfileEnter(e, prettyTruncate(msg.user_address, 4, 4), msg.user_address, getAvatarColor(msg.user_address))}
-              onAvatarLeave={handleProfileLeave}
-            />
-          ))}
+          {messages
+            .slice()
+            .reverse()
+            .map((msg) => (
+              <ChatBubble
+                key={msg.id}
+                name={prettyTruncate(msg.user_address, 4, 4)}
+                userAddress={msg.user_address}
+                message={msg.message}
+                time={formatChatTime(new Date(msg.created_at))}
+                avatarColor={getAvatarColor(msg.user_address)}
+                avatarUrl={avatarMap[msg.user_address]}
+                onAvatarEnter={(e) =>
+                  handleProfileEnter(
+                    e,
+                    prettyTruncate(msg.user_address, 4, 4),
+                    msg.user_address,
+                    getAvatarColor(msg.user_address),
+                  )
+                }
+                onAvatarLeave={handleProfileLeave}
+              />
+            ))}
         </div>
       </div>
 
@@ -441,13 +540,11 @@ export const RightSidebar = () => {
           type="button"
           onClick={handleSend}
           disabled={!isWalletConnected || !message.trim() || sending}
-          className="w-full py-2.5 px-4 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/10 rounded-lg text-sm font-mono font-medium text-white transition-colors"
+          className="w-full py-2.5 px-4 bg-primary hover:bg-primary/90 text-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/10 rounded-lg text-sm font-mono font-medium disabled:text-white/50 transition-colors"
         >
           {sending ? 'Sending...' : 'Send'}
         </button>
-        {sendError && (
-          <p className="text-xs text-red-400 font-mono">{sendError}</p>
-        )}
+        {sendError && <p className="text-xs text-red-400 font-mono">{sendError}</p>}
       </div>
     </div>
   );

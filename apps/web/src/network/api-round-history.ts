@@ -12,8 +12,12 @@ export interface WinnerRound {
 
 const API_BASE = 'https://api.spermrace.club';
 
-export async function fetchWinnerRounds(skip = 100): Promise<WinnerRound[]> {
-  const res = await fetch(`${API_BASE}/round-history/winners?skip=${skip}`);
+export async function fetchWinnerRounds(skip?: number): Promise<WinnerRound[]> {
+  const url =
+    typeof skip === 'number'
+      ? `${API_BASE}/round-history/winners?skip=${skip}`
+      : `${API_BASE}/round-history/winners`;
+  const res = await fetch(url);
   if (!res.ok) {
     throw new Error('Failed to fetch winner rounds');
   }

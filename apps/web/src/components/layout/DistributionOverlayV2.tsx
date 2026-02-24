@@ -79,8 +79,18 @@ export const DistributionOverlayV2: React.FC = () => {
 
           {/* table header */}
           <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[#BBFF00]/30 mb-1">
-            <span className="text-[#BBFF00] text-[10px] md:text-xs font-bold uppercase w-12 shrink-0" style={{ fontFamily: 'Orbitron, sans-serif' }}>Pos</span>
-            <span className="text-[#BBFF00] text-[10px] md:text-xs font-bold uppercase" style={{ fontFamily: 'Orbitron, sans-serif' }}>Racer No &amp; Name</span>
+            <span
+              className="text-[#BBFF00] text-[10px] md:text-xs font-bold uppercase w-12 shrink-0"
+              style={{ fontFamily: 'Orbitron, sans-serif' }}
+            >
+              Pos
+            </span>
+            <span
+              className="text-[#BBFF00] text-[10px] md:text-xs font-bold uppercase"
+              style={{ fontFamily: 'Orbitron, sans-serif' }}
+            >
+              Racer No &amp; Name
+            </span>
           </div>
 
           {/* rows — flex-1 distributes evenly so no scrolling */}
@@ -90,10 +100,7 @@ export const DistributionOverlayV2: React.FC = () => {
               const isTop3 = rank < 3;
 
               return (
-                <div
-                  key={spermId}
-                  className="flex items-center gap-3 px-3"
-                >
+                <div key={spermId} className="flex items-center gap-3 px-3">
                   <span
                     className={`w-12 shrink-0 text-xs md:text-sm font-bold ${isTop3 ? 'text-white' : 'text-white/50'}`}
                     style={{ fontFamily: 'Orbitron, sans-serif' }}
@@ -101,12 +108,16 @@ export const DistributionOverlayV2: React.FC = () => {
                     {ORDINALS[rank]}
                   </span>
 
-                  <SpermAnim
-                    src={racer.race}
-                    className="w-10 h-7 md:w-12 md:h-8 shrink-0"
+                  <img
+                    src={racer.icon}
+                    alt={racer.name}
+                    className="w-6 h-6 shrink-0"
+                    draggable={false}
                   />
 
-                  <span className={`text-xs md:text-sm font-semibold truncate ${isTop3 ? 'text-white' : 'text-white/60'}`}>
+                  <span
+                    className={`text-xs md:text-sm font-semibold truncate ${isTop3 ? 'text-white' : 'text-white/60'}`}
+                  >
                     {racer.name}
                   </span>
                 </div>
@@ -150,15 +161,15 @@ export const DistributionOverlayV2: React.FC = () => {
           </div>
 
           {/* total win */}
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-baseline gap-2">
             <p
-              className="text-[#65EF96] text-base md:text-xl lg:text-2xl font-bold uppercase tracking-wider"
+              className="text-[#65EF96] text-xs md:text-sm lg:text-base font-semibold uppercase tracking-[0.2em]"
               style={{ fontFamily: 'Orbitron, sans-serif' }}
             >
-              Total Win :
+              Total Win
             </p>
             <p
-              className="text-[#65EF96] text-xl md:text-3xl lg:text-4xl font-bold"
+              className="text-[#65EF96] text-xl md:text-2xl lg:text-3xl font-bold"
               style={{ fontFamily: 'Orbitron, sans-serif' }}
             >
               {totalWinSol.toFixed(3)} SOL
