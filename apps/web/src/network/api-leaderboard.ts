@@ -19,7 +19,7 @@ export interface UserDetail {
   updated_at: string;
 }
 
-const API_BASE = 'https://api.spermrace.club';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   const res = await fetch(`${API_BASE}/distribution-history/leaderboard`);

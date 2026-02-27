@@ -3,7 +3,7 @@ export interface UserStats {
   total_winning: string;
 }
 
-const API_BASE = 'https://api.spermrace.club';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export async function fetchUserStats(address: string): Promise<UserStats | null> {
   if (!address) return null;
