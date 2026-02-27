@@ -1,0 +1,1040 @@
+{
+  "address": "2y2AdrVLKqwcA5GQEC1ULEHac3hH9ck565UBqzPaReJZ",
+  "metadata": {
+    "name": "sperm_race",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Sperm Race betting game on Solana"
+  },
+  "instructions": [
+    {
+      "name": "claim_winnings",
+      "discriminator": [
+        161,
+        215,
+        24,
+        59,
+        14,
+        236,
+        242,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "round_account",
+          "writable": true
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "baby_king_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  98,
+                  121,
+                  95,
+                  107,
+                  105,
+                  110,
+                  103,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bet_record",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "sperm_id",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "close_round_account",
+      "docs": [
+        "Reclaims rent from a RoundAccount after all claims are finished"
+      ],
+      "discriminator": [
+        36,
+        31,
+        187,
+        149,
+        214,
+        73,
+        228,
+        48
+      ],
+      "accounts": [
+        {
+          "name": "round_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round_account.round_id",
+                "account": "RoundAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_game",
+      "docs": [
+        "Initialize the game with an authority"
+      ],
+      "discriminator": [
+        44,
+        62,
+        102,
+        247,
+        126,
+        208,
+        130,
+        215
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "baby_king_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  98,
+                  121,
+                  95,
+                  107,
+                  105,
+                  110,
+                  103,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "treasury",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "lock_betting",
+      "discriminator": [
+        9,
+        125,
+        7,
+        62,
+        99,
+        72,
+        131,
+        204
+      ],
+      "accounts": [
+        {
+          "name": "global_state"
+        },
+        {
+          "name": "round_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "global_state.current_round",
+                "account": "GlobalState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "place_bet",
+      "docs": [
+        "Place a bet on a sperm (user action)"
+      ],
+      "discriminator": [
+        222,
+        62,
+        67,
+        220,
+        63,
+        166,
+        126,
+        33
+      ],
+      "accounts": [
+        {
+          "name": "round_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "round_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bet_record",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "round_id",
+          "type": "u64"
+        },
+        {
+          "name": "sperm_id",
+          "type": "u8"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "reclaim_bet_rent",
+      "docs": [
+        "Allows a user to reclaim the rent (lamports) locked in their BetRecord PDA.",
+        "This does NOT touch the round pot; it only closes the BetRecord account and",
+        "returns its lamports to the user via Anchor's `close = user` mechanism."
+      ],
+      "discriminator": [
+        27,
+        162,
+        160,
+        227,
+        60,
+        25,
+        102,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "round_account",
+          "writable": true
+        },
+        {
+          "name": "bet_record",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "sperm_id",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "resolve_round",
+      "docs": [
+        "Resolve round: entropy = sha256(slot_hash || seed || round_id), winner and baby_king derived on-chain. Server only reveals seed; cannot influence outcome."
+      ],
+      "discriminator": [
+        165,
+        114,
+        237,
+        158,
+        1,
+        36,
+        70,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "global_state"
+        },
+        {
+          "name": "round_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "global_state.current_round",
+                "account": "GlobalState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "baby_king_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  98,
+                  121,
+                  95,
+                  107,
+                  105,
+                  110,
+                  103,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "server_seed",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "start_round",
+      "docs": [
+        "Start a new round (authority only).",
+        "end_slot: slot at which entropy is fixed (slot hash sampled from SlotHashes sysvar). Must be in the future when called; resolution must happen within ~512 slots after end_slot."
+      ],
+      "discriminator": [
+        144,
+        144,
+        43,
+        7,
+        193,
+        42,
+        217,
+        215
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true
+        },
+        {
+          "name": "round_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "round_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "round_id",
+          "type": "u64"
+        },
+        {
+          "name": "hashed_seed",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "end_slot",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BabyKingVault",
+      "discriminator": [
+        16,
+        115,
+        28,
+        91,
+        209,
+        216,
+        248,
+        224
+      ]
+    },
+    {
+      "name": "BetRecord",
+      "discriminator": [
+        144,
+        217,
+        102,
+        109,
+        200,
+        164,
+        66,
+        178
+      ]
+    },
+    {
+      "name": "GlobalState",
+      "discriminator": [
+        163,
+        46,
+        74,
+        168,
+        216,
+        123,
+        133,
+        98
+      ]
+    },
+    {
+      "name": "RoundAccount",
+      "discriminator": [
+        130,
+        93,
+        63,
+        79,
+        92,
+        58,
+        4,
+        134
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "ClaimWinningsEvent",
+      "discriminator": [
+        141,
+        122,
+        74,
+        70,
+        105,
+        110,
+        174,
+        165
+      ]
+    },
+    {
+      "name": "LockBettingEvent",
+      "discriminator": [
+        180,
+        189,
+        163,
+        160,
+        250,
+        204,
+        161,
+        132
+      ]
+    },
+    {
+      "name": "PlaceBetEvent",
+      "discriminator": [
+        177,
+        144,
+        212,
+        92,
+        60,
+        242,
+        202,
+        134
+      ]
+    },
+    {
+      "name": "RentClaimedEvent",
+      "discriminator": [
+        166,
+        43,
+        173,
+        249,
+        220,
+        116,
+        144,
+        6
+      ]
+    },
+    {
+      "name": "ResolveRoundEvent",
+      "discriminator": [
+        138,
+        62,
+        188,
+        243,
+        95,
+        97,
+        16,
+        55
+      ]
+    },
+    {
+      "name": "StartRoundEvent",
+      "discriminator": [
+        11,
+        189,
+        160,
+        46,
+        250,
+        130,
+        121,
+        148
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Unauthorized: Only authority can perform this action"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidSpermId",
+      "msg": "Invalid sperm ID: Must be 0-9"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidBetAmount",
+      "msg": "Invalid bet amount"
+    },
+    {
+      "code": 6003,
+      "name": "BettingLocked",
+      "msg": "Betting is locked"
+    },
+    {
+      "code": 6004,
+      "name": "RoundOverflow",
+      "msg": "Round overflow"
+    },
+    {
+      "code": 6005,
+      "name": "AmountOverflow",
+      "msg": "Amount overflow"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidSeed",
+      "msg": "Invalid seed hash"
+    },
+    {
+      "code": 6007,
+      "name": "RoundNotResolved",
+      "msg": "Round not resolved"
+    },
+    {
+      "code": 6008,
+      "name": "NotAWinner",
+      "msg": "Not a winner"
+    },
+    {
+      "code": 6009,
+      "name": "RoundMismatch",
+      "msg": "Round mismatch"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidPayout",
+      "msg": "Invalid payout"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidSlotHash",
+      "msg": "Invalid slot hash or end_slot not in SlotHashes history"
+    }
+  ],
+  "types": [
+    {
+      "name": "BabyKingVault",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "total_accumulated",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BetRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "sperm_id",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimWinningsEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "sperm_id",
+            "type": "u8"
+          },
+          {
+            "name": "amount_claimed",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "current_round",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LockBettingEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PlaceBetEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "sperm_id",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RentClaimedEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "sperm_id",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ResolveRoundEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "winner_id",
+            "type": "u8"
+          },
+          {
+            "name": "total_pot",
+            "type": "u64"
+          },
+          {
+            "name": "is_baby_king_hit",
+            "type": "bool"
+          },
+          {
+            "name": "baby_king_jackpot_snapshot",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoundAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "hashed_seed",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "end_slot",
+            "type": "u64"
+          },
+          {
+            "name": "winner_id",
+            "type": "u8"
+          },
+          {
+            "name": "is_locked",
+            "type": "bool"
+          },
+          {
+            "name": "total_pot",
+            "type": "u64"
+          },
+          {
+            "name": "is_resolved",
+            "type": "bool"
+          },
+          {
+            "name": "bets_per_sperm",
+            "type": {
+              "array": [
+                "u64",
+                10
+              ]
+            }
+          },
+          {
+            "name": "baby_king_hit",
+            "type": "bool"
+          },
+          {
+            "name": "baby_king_jackpot_snapshot",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StartRoundEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round_id",
+            "type": "u64"
+          },
+          {
+            "name": "hashed_seed",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "end_slot",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    }
+  ]
+}

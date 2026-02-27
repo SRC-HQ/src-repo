@@ -1,0 +1,15 @@
+{
+  "name": "@sperm-race/contract-types",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/sperm_race.ts",
+  "types": "./src/sperm_race.ts",
+  "exports": {
+    ".": "./src/sperm_race.ts",
+    "./idl": "./src/idl/sperm_race.json"
+  },
+  "scripts": {},
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
