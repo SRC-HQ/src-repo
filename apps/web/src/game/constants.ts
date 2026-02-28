@@ -1,5 +1,17 @@
+// Base canvas dimensions (landscape)
 export const GAME_WIDTH = 1280;
-export const GAME_HEIGHT = 720;
+export const GAME_HEIGHT = 768;
+
+// Content safe zone dimensions
+export const CONTENT_WIDTH = 1024;
+export const CONTENT_HEIGHT = 576;
+
+// Portrait mode dimensions
+export const PORTRAIT_WIDTH = 768;
+export const PORTRAIT_HEIGHT = 1024;
+export const PORTRAIT_CONTENT_WIDTH = 576;
+export const PORTRAIT_CONTENT_HEIGHT = 900;
+
 export const INTERPOLATION_FACTOR = 0.15;
 
 /**

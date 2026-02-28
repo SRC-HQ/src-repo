@@ -16,34 +16,6 @@ export class PreparationScene implements Scene {
 
   constructor() {
     this.container = new Container();
-
-    const text = new Text('PREPARATION PHASE — CHOOSE YOUR SPERM', {
-      fill: 0xffffff,
-      fontSize: 20,
-    });
-    text.position.set(50, 20);
-    this.container.addChild(text);
-
-    const trackGfx = new Graphics();
-    for (let i = 0; i <= RACER_COUNT; i++) {
-      const y = START_Y + i * LANE_HEIGHT;
-      trackGfx.moveTo(START_X, y);
-      trackGfx.lineTo(FINISH_X, y);
-    }
-    trackGfx.stroke({ width: 1, color: 0xffffff, alpha: 0.2 });
-    this.container.addChild(trackGfx);
-
-    const startLine = new Graphics();
-    startLine.moveTo(START_X, START_Y);
-    startLine.lineTo(START_X, START_Y + RACER_COUNT * LANE_HEIGHT);
-    startLine.stroke({ width: 2, color: 0x33ff57 });
-    this.container.addChild(startLine);
-
-    const finishLine = new Graphics();
-    finishLine.moveTo(FINISH_X, START_Y);
-    finishLine.lineTo(FINISH_X, START_Y + RACER_COUNT * LANE_HEIGHT);
-    finishLine.stroke({ width: 2, color: 0xff5733 });
-    this.container.addChild(finishLine);
   }
 
   update(_delta: number) {}
@@ -53,6 +25,8 @@ export class PreparationScene implements Scene {
       if (this.container && !this.container.destroyed) {
         this.container.destroy({ children: true });
       }
-    } catch (_) { /* already destroyed */ }
+    } catch (_) {
+      /* already destroyed */
+    }
   }
 }

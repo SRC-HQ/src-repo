@@ -10,14 +10,6 @@ export class DistributionScene implements Scene {
 
   constructor() {
     this.container = new Container();
-
-    const phaseText = new Text('RESULTS — DISTRIBUTING WINNINGS', {
-      fill: 0xffffff,
-      fontSize: 20,
-      fontFamily: 'Orbitron',
-    });
-    phaseText.position.set(50, 20);
-    this.container.addChild(phaseText);
   }
 
   update(_delta: number) {}
@@ -27,6 +19,8 @@ export class DistributionScene implements Scene {
       if (this.container && !this.container.destroyed) {
         this.container.destroy({ children: true });
       }
-    } catch (_) { /* already destroyed */ }
+    } catch (_) {
+      /* already destroyed */
+    }
   }
 }
