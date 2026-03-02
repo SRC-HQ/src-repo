@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import { GAME_WIDTH, GAME_HEIGHT } from '../constants';
+import { GAME_WIDTH, GAME_HEIGHT, PORTRAIT_WIDTH, PORTRAIT_HEIGHT } from '../constants';
 import { SceneManager } from './SceneManager';
 import { GameLoop } from './GameLoop';
 
@@ -9,6 +9,8 @@ export class GameApp {
   public gameLoop!: GameLoop;
   private isDestroyed: boolean = false;
   private isInitializing: boolean = false;
+  private element: HTMLElement | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor() {
     this.app = new Application();
@@ -19,14 +21,19 @@ export class GameApp {
   async init(element: HTMLElement) {
     if (this.isDestroyed) return;
 
+    this.element = element;
     this.isInitializing = true;
+
     try {
-      // PixiJS v8 requires async init and has different properties than v7
-      // Casting to any to avoid TypeScript errors if v7 types are present in node_modules
+      // Determine initial dimensions based on viewport
+      const isLandscape = window.innerWidth > window.innerHeight;
+      const width = isLandscape ? GAME_WIDTH : PORTRAIT_WIDTH;
+      const height = isLandscape ? GAME_HEIGHT : PORTRAIT_HEIGHT;
+
+      // PixiJS v8 requires async init
       await (this.app as any).init({
-        // width: GAME_WIDTH, // Removed in favor of resizeTo
-        // height: GAME_HEIGHT,
-        resizeTo: element,
+        width,
+        height,
         backgroundColor: 0x5b5880,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
@@ -48,10 +55,68 @@ export class GameApp {
       // In v8, canvas is available after init
       element.appendChild((this.app as any).canvas);
 
+      // Setup responsive resize
+      this.setupResize();
+
       this.gameLoop.start();
     } catch (error) {
       console.error('GameApp init error:', error);
     }
+  }
+
+  private setupResize() {
+    if (!this.element) return;
+
+    const resize = () => {
+      if (!this.element || this.isDestroyed) return;
+
+      const containerWidth = this.element.clientWidth;
+      const containerHeight = this.element.clientHeight;
+      const isLandscape = containerWidth > containerHeight;
+
+      // Set canvas dimensions based on orientation
+      const canvasWidth = isLandscape ? GAME_WIDTH : PORTRAIT_WIDTH;
+      const canvasHeight = isLandscape ? GAME_HEIGHT : PORTRAIT_HEIGHT;
+
+      // Calculate scale to fit container while maintaining aspect ratio
+      const scaleX = containerWidth / canvasWidth;
+      const scaleY = containerHeight / canvasHeight;
+      const scale = Math.min(scaleX, scaleY);
+
+      // Apply dimensions to renderer
+      const renderer = (this.app as any).renderer;
+      if (renderer) {
+        renderer.resize(canvasWidth, canvasHeight);
+      }
+
+      // Apply CSS scaling
+      const canvas = (this.app as any).canvas;
+      if (canvas) {
+        const scaledWidth = canvasWidth * scale;
+        const scaledHeight = canvasHeight * scale;
+
+        canvas.style.width = `${scaledWidth}px`;
+        canvas.style.height = `${scaledHeight}px`;
+
+        // Center the canvas
+        const offsetX = (containerWidth - scaledWidth) / 2;
+        const offsetY = (containerHeight - scaledHeight) / 2;
+
+        canvas.style.position = 'absolute';
+        canvas.style.left = `${offsetX}px`;
+        canvas.style.top = `${offsetY}px`;
+      }
+    };
+
+    // Initial resize
+    resize();
+
+    // Watch for container size changes
+    this.resizeObserver = new ResizeObserver(resize);
+    this.resizeObserver.observe(this.element);
+
+    // Also listen to window resize for orientation changes
+    window.addEventListener('resize', resize);
   }
 
   destroy() {
@@ -63,6 +128,12 @@ export class GameApp {
   private cleanup() {
     try {
       if (this.isInitializing) return;
+
+      // Clean up resize observer
+      if (this.resizeObserver) {
+        this.resizeObserver.disconnect();
+        this.resizeObserver = null;
+      }
 
       if (this.gameLoop) {
         this.gameLoop.stop();
@@ -77,6 +148,8 @@ export class GameApp {
       if (this.app) {
         this.app.destroy(true, { children: true, texture: true, textureSource: true } as any);
       }
+
+      this.element = null;
     } catch (e) {
       console.warn('Error during GameApp cleanup:', e);
     }

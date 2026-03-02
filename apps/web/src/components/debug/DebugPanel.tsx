@@ -15,6 +15,25 @@ export const DebugPanel = () => {
 
   const setMode = (mode: GameMode) => {
     // Directly set store mode for debug — bypasses socket
+    if (mode === 'DISTRIBUTION') {
+      // Ensure we have leaderboard data for distribution mode
+      const currentLeaderboard = useGameStore.getState().leaderboard;
+      if (!currentLeaderboard || currentLeaderboard.length === 0) {
+        // Set dummy leaderboard data (racer IDs 0-9 in random order)
+        const dummyLeaderboard = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        // Shuffle for variety
+        for (let i = dummyLeaderboard.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [dummyLeaderboard[i], dummyLeaderboard[j]] = [dummyLeaderboard[j], dummyLeaderboard[i]];
+        }
+        useGameStore.setState({
+          mode,
+          leaderboard: dummyLeaderboard,
+          apiTotalPot: '5000000000', // 5 SOL in lamports
+        });
+        return;
+      }
+    }
     useGameStore.setState({ mode });
   };
 

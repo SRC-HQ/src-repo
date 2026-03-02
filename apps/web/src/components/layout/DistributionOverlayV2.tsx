@@ -69,24 +69,24 @@ export const DistributionOverlayV2: React.FC = () => {
       {/* two-column layout that fills without scrolling */}
       <div className="relative w-full h-full flex flex-row">
         {/* LEFT: Race Result table */}
-        <div className="flex flex-col w-[45%] h-full p-4 md:p-6">
+        <div className="flex flex-col w-full md:w-[45%] lg:w-[40%] xl:w-[35%] h-full p-4 md:p-6 lg:p-8 md:ml-12 lg:ml-20 xl:ml-28">
           <h2
-            className="text-[#BBFF00] text-lg md:text-2xl font-bold uppercase tracking-wider mb-2"
+            className="text-base md:text-lg lg:text-xl font-bold uppercase tracking-wider mb-2 md:mb-3"
             style={{ fontFamily: 'Orbitron, sans-serif' }}
           >
             Race Result
           </h2>
 
           {/* table header */}
-          <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[#BBFF00]/30 mb-1">
+          <div className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 border-b border-[#BBFF00]/30 mb-1">
             <span
-              className="text-[#BBFF00] text-[10px] md:text-xs font-bold uppercase w-12 shrink-0"
+              className="text-[#BBFF00] text-[8px] md:text-[9px] lg:text-[10px] font-bold uppercase w-10 md:w-12 shrink-0"
               style={{ fontFamily: 'Orbitron, sans-serif' }}
             >
               Pos
             </span>
             <span
-              className="text-[#BBFF00] text-[10px] md:text-xs font-bold uppercase"
+              className="text-[#BBFF00] text-[8px] md:text-[9px] lg:text-[10px] font-bold uppercase"
               style={{ fontFamily: 'Orbitron, sans-serif' }}
             >
               Racer No &amp; Name
@@ -100,9 +100,9 @@ export const DistributionOverlayV2: React.FC = () => {
               const isTop3 = rank < 3;
 
               return (
-                <div key={spermId} className="flex items-center gap-3 px-3">
+                <div key={spermId} className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-0.5">
                   <span
-                    className={`w-12 shrink-0 text-xs md:text-sm font-bold ${isTop3 ? 'text-white' : 'text-white/50'}`}
+                    className={`w-10 md:w-12 shrink-0 text-[9px] md:text-[10px] lg:text-xs font-bold ${isTop3 ? 'text-white' : 'text-white/50'}`}
                     style={{ fontFamily: 'Orbitron, sans-serif' }}
                   >
                     {ORDINALS[rank]}
@@ -111,12 +111,12 @@ export const DistributionOverlayV2: React.FC = () => {
                   <img
                     src={racer.icon}
                     alt={racer.name}
-                    className="w-6 h-6 shrink-0"
+                    className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 shrink-0"
                     draggable={false}
                   />
 
                   <span
-                    className={`text-xs md:text-sm font-semibold truncate ${isTop3 ? 'text-white' : 'text-white/60'}`}
+                    className={`text-[9px] md:text-[10px] lg:text-xs font-semibold whitespace-nowrap ${isTop3 ? 'text-white' : 'text-white/60'}`}
                   >
                     {racer.name}
                   </span>
@@ -127,33 +127,33 @@ export const DistributionOverlayV2: React.FC = () => {
         </div>
 
         {/* RIGHT: Winner showcase */}
-        <div className="flex flex-col items-center justify-center w-[55%] h-full p-4 md:p-6">
+        <div className="hidden md:flex flex-col items-center justify-center md:w-[55%] lg:w-[60%] xl:w-[65%] h-full p-4 md:p-6">
           <p
-            className="text-[#BBFF00] text-base md:text-xl lg:text-2xl uppercase tracking-[0.25em] font-bold mb-4"
+            className="text-[#BBFF00] text-sm md:text-base lg:text-lg xl:text-xl uppercase tracking-[0.25em] font-bold mb-3 md:mb-4"
             style={{ fontFamily: 'Orbitron, sans-serif' }}
           >
             The Winner
           </p>
 
           {/* animated winner sperm — large */}
-          <div className="relative mb-4">
+          <div className="relative mb-3">
             <div className="absolute inset-0 rounded-full bg-[#BBFF00]/15 blur-3xl scale-[2] animate-pulse" />
             <SpermAnim
               src={winnerRacer.race}
-              className="relative w-40 h-28 md:w-56 md:h-40 lg:w-72 lg:h-52 drop-shadow-[0_0_30px_rgba(187,255,0,0.3)]"
+              className="relative w-32 h-24 md:w-40 md:h-28 lg:w-48 lg:h-36 drop-shadow-[0_0_30px_rgba(187,255,0,0.3)]"
             />
           </div>
 
           {/* winner name with icon */}
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
             <img
               src={winnerRacer.icon}
               alt={winnerRacer.name}
-              className="w-8 h-8 md:w-10 md:h-10"
+              className="w-6 h-6 md:w-7 md:h-7 lg:w-8 lg:h-8"
               draggable={false}
             />
             <p
-              className="text-white text-xl md:text-2xl lg:text-3xl font-bold"
+              className="text-white text-base md:text-lg lg:text-xl font-bold"
               style={{ fontFamily: 'Orbitron, sans-serif' }}
             >
               {winnerRacer.name}
@@ -163,13 +163,13 @@ export const DistributionOverlayV2: React.FC = () => {
           {/* total win */}
           <div className="flex items-baseline gap-2">
             <p
-              className="text-[#65EF96] text-xs md:text-sm lg:text-base font-semibold uppercase tracking-[0.2em]"
+              className="text-[#65EF96] text-[10px] md:text-xs lg:text-sm font-semibold uppercase tracking-[0.2em]"
               style={{ fontFamily: 'Orbitron, sans-serif' }}
             >
               Total Win
             </p>
             <p
-              className="text-[#65EF96] text-xl md:text-2xl lg:text-3xl font-bold"
+              className="text-[#65EF96] text-base md:text-lg lg:text-xl font-bold"
               style={{ fontFamily: 'Orbitron, sans-serif' }}
             >
               {totalWinSol.toFixed(3)} SOL
@@ -177,7 +177,7 @@ export const DistributionOverlayV2: React.FC = () => {
           </div>
 
           {/* bettor count */}
-          <p className="text-white/40 text-xs md:text-sm mt-2">
+          <p className="text-white/40 text-[10px] md:text-xs mt-2">
             {getBettorCount(winnerId)} winner(s)
           </p>
         </div>

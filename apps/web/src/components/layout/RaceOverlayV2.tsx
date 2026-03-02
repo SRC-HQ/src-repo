@@ -40,7 +40,7 @@ const LAST_LANE_Y = RACE.startY + (RACER_COUNT - 1) * RACE.laneSpaceY;
 const GROUND_END_Y = LAST_LANE_Y + 40;
 
 const SCOREBAR_SCALE = 1.15;
-const SCOREBAR_Y = CANVAS_H * 0.95;
+const SCOREBAR_Y = CANVAS_H * 0.9;
 
 const DEBUG_FINISH_OFFSET_X = 0;
 
@@ -130,14 +130,6 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     const deltaMs = now - lastTimeRef.current;
     lastTimeRef.current = now;
     const deltaS = deltaMs / 1000;
-
-    /* ---------- cover-fill: scale world to fully cover the renderer ---------- */
-    const rw = Math.max(1, (app as any).renderer?.width ?? CANVAS_W);
-    const rh = Math.max(1, (app as any).renderer?.height ?? CANVAS_H);
-    const scale = Math.max(rw / CANVAS_W, rh / CANVAS_H);
-    sc.world.scale.set(scale);
-    sc.world.x = Math.round((rw - CANVAS_W * scale) / 2);
-    sc.world.y = Math.round((rh - CANVAS_H * scale) / 2);
 
     const tileMod = (sprite: TilingSprite | null, dx: number) => {
       if (!sprite?.tilePosition) return;
@@ -339,17 +331,26 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     if (!el) return;
     let app: Application | null = null;
     let destroyed = false;
+    let resizeObserver: ResizeObserver | null = null;
 
     (async () => {
       try {
         app = new Application();
+
+        // Determine initial dimensions based on viewport
+        const isLandscape = window.innerWidth > window.innerHeight;
+        const width = isLandscape ? CANVAS_W : 768;
+        const height = isLandscape ? CANVAS_H : 1024;
+
         await (app as any).init({
-          resizeTo: el,
+          width,
+          height,
           backgroundColor: 0x1a1a2e,
           resolution: window.devicePixelRatio || 1,
           autoDensity: true,
           antialias: true,
         });
+
         if (destroyed) return;
         appRef.current = app;
 
@@ -492,6 +493,7 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
         for (let i = 0; i < RACER_COUNT; i++) {
           const ic = new Sprite(iconTextures[i]);
           ic.anchor.set(0.5, 0.5);
+          ic.scale.set(0.25, 0.25); // Scale down icon size
           ic.x = i * ICON_SPACING;
           ic.y = 10;
           scoreListContainer.addChild(ic);
@@ -516,6 +518,59 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
         };
 
         el.appendChild((app as any).canvas);
+
+        // Setup responsive resize
+        const resize = () => {
+          if (!el || destroyed || !app) return;
+
+          const containerWidth = el.clientWidth;
+          const containerHeight = el.clientHeight;
+          const isLandscape = containerWidth > containerHeight;
+
+          // Set canvas dimensions based on orientation
+          const canvasWidth = isLandscape ? CANVAS_W : 768;
+          const canvasHeight = isLandscape ? CANVAS_H : 1024;
+
+          // Calculate scale to fit container while maintaining aspect ratio
+          const scaleX = containerWidth / canvasWidth;
+          const scaleY = containerHeight / canvasHeight;
+          const scale = Math.min(scaleX, scaleY);
+
+          // Apply dimensions to renderer
+          const renderer = (app as any).renderer;
+          if (renderer) {
+            renderer.resize(canvasWidth, canvasHeight);
+          }
+
+          // Apply CSS scaling
+          const canvas = (app as any).canvas;
+          if (canvas) {
+            const scaledWidth = canvasWidth * scale;
+            const scaledHeight = canvasHeight * scale;
+
+            canvas.style.width = `${scaledWidth}px`;
+            canvas.style.height = `${scaledHeight}px`;
+
+            // Center the canvas
+            const offsetX = (containerWidth - scaledWidth) / 2;
+            const offsetY = (containerHeight - scaledHeight) / 2;
+
+            canvas.style.position = 'absolute';
+            canvas.style.left = `${offsetX}px`;
+            canvas.style.top = `${offsetY}px`;
+          }
+        };
+
+        // Initial resize
+        resize();
+
+        // Watch for container size changes
+        resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(el);
+
+        // Also listen to window resize for orientation changes
+        window.addEventListener('resize', resize);
+
         setIsReady(true);
       } catch (err: any) {
         console.error('RaceOverlayV2 init error:', err);
@@ -525,6 +580,12 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
 
     return () => {
       destroyed = true;
+
+      // Clean up resize observer
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+
       if (app) {
         try {
           const c = (app as any).canvas;
