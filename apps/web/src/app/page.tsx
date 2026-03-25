@@ -8,6 +8,7 @@ const RaceGame = dynamic(() => import('../components/RaceGame').then((m) => m.Ra
   loading: () => (
     <div className="absolute inset-0 flex items-center justify-center bg-black z-50">
       <div className="flex flex-col items-center gap-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/assets/loading/loader.png"
           alt="Loading"

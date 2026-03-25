@@ -142,6 +142,7 @@ export const Navbar = () => {
               title="Disconnect Wallet"
             >
               {currentUser?.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={currentUser.image}
                   alt={currentUser.x_username || currentUser.username || 'User avatar'}

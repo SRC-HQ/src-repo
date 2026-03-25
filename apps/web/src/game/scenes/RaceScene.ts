@@ -1,12 +1,12 @@
-import { Container, Graphics, Text } from 'pixi.js';
-import { Scene } from '../core/Scene';
-import { useGameStore } from '../../store/gameStore';
+import { Container, Text, Graphics } from "pixi.js";
+import { Scene } from "../core/Scene";
+import { useGameStore } from "../../store/gameStore";
+import { RACER_COUNT } from "../constants/vanillaAssets";
 
-const RACER_COUNT = 10;
+const START_X = 100;
+const FINISH_X = 700;
+const START_Y = 100;
 const LANE_HEIGHT = 50;
-const START_Y = 80;
-const START_X = 60;
-const FINISH_X = 1100;
 
 /**
  * Renders the race track (lanes, start/finish). Racers are rendered by
@@ -18,7 +18,13 @@ export class RaceScene implements Scene {
   constructor() {
     this.container = new Container();
 
-    const headerText = new Text('RACE STARTED', { fill: 0xffffff, fontSize: 20 });
+    const headerText = new Text({
+      text: "RACE STARTED",
+      style: {
+        fill: 0xffffff,
+        fontSize: 20,
+      },
+    });
     headerText.position.set(50, 20);
     this.container.addChild(headerText);
 
@@ -44,9 +50,13 @@ export class RaceScene implements Scene {
     this.container.addChild(finishLine);
   }
 
-  update(_delta: number) {
-    const { pendingPhaseEvent, applyPendingPhaseEvent, apiPhaseStartedAt, apiPhaseEndsAt } =
-      useGameStore.getState();
+  update() {
+    const {
+      pendingPhaseEvent,
+      applyPendingPhaseEvent,
+      apiPhaseStartedAt,
+      apiPhaseEndsAt,
+    } = useGameStore.getState();
 
     if (!pendingPhaseEvent) return;
 
@@ -64,6 +74,8 @@ export class RaceScene implements Scene {
       if (this.container && !this.container.destroyed) {
         this.container.destroy({ children: true });
       }
-    } catch (_) { /* already destroyed */ }
+    } catch {
+      /* already destroyed */
+    }
   }
 }

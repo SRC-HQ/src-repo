@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, SystemProgram, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
+import { PublicKey, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
 import { Program, AnchorProvider, BN, Idl } from '@coral-xyz/anchor';
 import { SpermRace } from '@sperm-race/contract-types';
 import * as IDL from '@sperm-race/contract-types/idl';
@@ -22,13 +22,14 @@ export const useRaceContract = () => {
 
   useEffect(() => {
     if (!connection) return;
-    const walletOrDummy =
-      wallet?.adapter ??
-      ({
-        publicKey: new PublicKey('11111111111111111111111111111111'),
-        signTransaction: async (tx: Transaction) => tx,
-        signAllTransactions: async (txs: Transaction[]) => txs,
-      } as any);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const walletOrDummy = (wallet?.adapter as any) ?? {
+      publicKey: new PublicKey('11111111111111111111111111111111'),
+      signTransaction: async (tx: Transaction) => tx,
+      signAllTransactions: async (txs: Transaction[]) => txs,
+    };
+
     const provider = new AnchorProvider(connection, walletOrDummy, {
       commitment: 'confirmed',
     });
@@ -63,18 +64,12 @@ export const useRaceContract = () => {
   );
 
   const getGlobalStatePda = useCallback((): PublicKey => {
-    const [pda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('global_state')],
-      PROGRAM_ID,
-    );
+    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('global_state')], PROGRAM_ID);
     return pda;
   }, []);
 
   const getBabyKingVaultPda = useCallback((): PublicKey => {
-    const [pda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('baby_king_vault')],
-      PROGRAM_ID,
-    );
+    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('baby_king_vault')], PROGRAM_ID);
     return pda;
   }, []);
 
@@ -87,7 +82,7 @@ export const useRaceContract = () => {
       try {
         const pda = getBabyKingVaultPda();
         const vault = await program.account.babyKingVault.fetch(pda);
-        console.log(vault)
+        console.log(vault);
         const total = (vault as { totalAccumulated: BN }).totalAccumulated;
         setBabyKingTotal(total.toString());
       } catch (e) {
@@ -112,7 +107,6 @@ export const useRaceContract = () => {
       try {
         const lamports = Math.floor(amountPerSperm * LAMPORTS_PER_SOL);
         const transaction = new Transaction();
-        const roundAccountPda = getRoundAccountPda(roundId);
 
         for (const spermId of Array.from(selectedSperms)) {
           const betRecordPda = getBetRecordPda(publicKey, roundId, spermId);
@@ -120,27 +114,26 @@ export const useRaceContract = () => {
           const ix = await program.methods
             .placeBet(new BN(roundId), spermId, new BN(lamports))
             .accounts({
-              roundAccount: roundAccountPda,
               betRecord: betRecordPda,
               user: publicKey,
-              systemProgram: SystemProgram.programId,
-            } as any)
+            })
             .instruction();
 
           transaction.add(ix);
         }
 
-        const tx = await program.provider.sendAndConfirm!(transaction);
+        const tx = await program.provider.sendAndConfirm?.(transaction);
+        if (!tx) throw new Error('Transaction failed');
         setLoading(false);
         return tx;
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err.message || 'Transaction failed');
+        setError((err as Error).message || 'Transaction failed');
         setLoading(false);
         throw err;
       }
     },
-    [publicKey, program, getRoundAccountPda, getBetRecordPda],
+    [publicKey, program, getBetRecordPda],
   );
 
   const claimWinnings = useCallback(
@@ -153,9 +146,8 @@ export const useRaceContract = () => {
       setError(null);
 
       try {
-        const roundAccountPda = getRoundAccountPda(roundId);
         const globalStatePda = getGlobalStatePda();
-        const babyKingVaultPda = getBabyKingVaultPda();
+        const roundAccountPda = getRoundAccountPda(roundId);
         const betRecordPda = getBetRecordPda(publicKey, roundId, spermId);
 
         const globalState = await program.account.globalState.fetch(globalStatePda);
@@ -165,26 +157,24 @@ export const useRaceContract = () => {
           .claimWinnings(spermId)
           .accounts({
             roundAccount: roundAccountPda,
-            globalState: globalStatePda,
-            babyKingVault: babyKingVaultPda,
             betRecord: betRecordPda,
             user: publicKey,
             treasury,
-          } as any)
+          })
           .rpc();
 
         await refetchBalance?.();
 
         setLoading(false);
         return tx;
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err.message || 'Claim failed');
+        setError((err as Error).message || 'Claim failed');
         setLoading(false);
         throw err;
       }
     },
-    [publicKey, program, refetchBalance, getRoundAccountPda, getBetRecordPda, getGlobalStatePda, getBabyKingVaultPda],
+    [publicKey, program, refetchBalance, getRoundAccountPda, getBetRecordPda, getGlobalStatePda],
   );
 
   /** Batch claim multiple winnings in a single transaction */
@@ -202,7 +192,6 @@ export const useRaceContract = () => {
 
       try {
         const globalStatePda = getGlobalStatePda();
-        const babyKingVaultPda = getBabyKingVaultPda();
         const globalState = await program.account.globalState.fetch(globalStatePda);
         const treasury = globalState.treasury as PublicKey;
 
@@ -215,29 +204,28 @@ export const useRaceContract = () => {
             .claimWinnings(spermId)
             .accounts({
               roundAccount: roundAccountPda,
-              globalState: globalStatePda,
-              babyKingVault: babyKingVaultPda,
               betRecord: betRecordPda,
               user: publicKey,
               treasury,
-            } as any)
+            })
             .instruction();
 
           transaction.add(ix);
         }
 
-        const tx = await program.provider.sendAndConfirm!(transaction);
+        const tx = await program.provider.sendAndConfirm?.(transaction);
+        if (!tx) throw new Error('Transaction failed');
         await refetchBalance?.();
         setLoading(false);
         return tx;
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err.message || 'Claim failed');
+        setError((err as Error).message || 'Claim failed');
         setLoading(false);
         throw err;
       }
     },
-    [publicKey, program, refetchBalance, getRoundAccountPda, getBetRecordPda, getGlobalStatePda, getBabyKingVaultPda],
+    [publicKey, program, refetchBalance, getRoundAccountPda, getBetRecordPda, getGlobalStatePda],
   );
 
   return {

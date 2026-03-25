@@ -41,8 +41,14 @@ export const RaceGame = () => {
   useLegacyGameSync(areScriptsLoaded && isLegacyReady);
 
   useEffect(() => {
+    if (!areScriptsLoaded) return;
     // Intercept GameBridge.onGameReady to know when legacy assets are loaded
-    const win = window as any;
+    const win = window as unknown as {
+      GameBridge?: typeof window.GameBridge;
+      isLoaded?: boolean;
+      mainContainer?: unknown;
+      curPage?: string;
+    };
     if (areScriptsLoaded && win.GameBridge) {
       const originalOnGameReady = win.GameBridge.onGameReady;
       win.GameBridge.onGameReady = () => {
@@ -59,7 +65,7 @@ export const RaceGame = () => {
         }
       }
     }
-  }, [areScriptsLoaded]);
+  }, [areScriptsLoaded, isLegacyReady]);
 
   useEffect(() => {
     let timeout: number | undefined;
@@ -104,7 +110,9 @@ export const RaceGame = () => {
       ref={containerRef}
       style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}
     >
+      {/* eslint-disable-next-line @next/next/no-css-tags */}
       <link rel="stylesheet" href="/game/css/normalize.css" />
+      {/* eslint-disable-next-line @next/next/no-css-tags */}
       <link rel="stylesheet" href="/game/css/main.css" />
 
       {/* CONTENT START */}
@@ -112,7 +120,7 @@ export const RaceGame = () => {
         {/* BROWSER NOT SUPPORT START */}
         <div id="notSupportHolder">
           <div className="notSupport">
-            YOUR BROWSER ISN'T SUPPORTED.
+            YOUR BROWSER ISN&apos;T SUPPORTED.
             <br />
             PLEASE UPDATE YOUR BROWSER IN ORDER TO RUN THE GAME
           </div>
@@ -130,6 +138,7 @@ export const RaceGame = () => {
               }`}
             >
               <div className="flex flex-col items-center gap-6">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/assets/loading/loader.png"
                   alt="Loading"

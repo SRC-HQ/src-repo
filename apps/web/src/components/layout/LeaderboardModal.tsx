@@ -3,7 +3,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { AvatarDefaultIcon, SolColorIconSvg } from '../svgs';
-import { fetchLeaderboard, fetchUserDetail, LeaderboardEntry, UserDetail } from '../../network/api-leaderboard';
+import {
+  fetchLeaderboard,
+  fetchUserDetail,
+  LeaderboardEntry,
+  UserDetail,
+} from '../../network/api-leaderboard';
 import { prettyTruncate } from '../../utils/format';
 
 interface LeaderboardModalProps {
@@ -48,7 +53,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
         }));
 
         setRows(combined);
-      } catch (e) {
+      } catch {
         if (!cancelled) {
           setError('Failed to load leaderboard');
           setRows([]);
@@ -111,11 +116,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
             </thead>
             <tbody>
               {displayRows.map((row) => (
-                <LeaderboardTableRow
-                  key={row.rank}
-                  row={row}
-                  loading={loading}
-                />
+                <LeaderboardTableRow key={row.rank} row={row} loading={loading} />
               ))}
             </tbody>
           </table>
@@ -172,19 +173,14 @@ const LeaderboardTableRow: React.FC<LeaderboardTableRowProps> = ({ row, loading 
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
             {hasData && row.user?.image ? (
-              <img
-                src={row.user.image}
-                alt={displayName}
-                className="h-full w-full object-cover"
-              />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={row.user.image} alt={displayName} className="h-full w-full object-cover" />
             ) : (
               <AvatarDefaultIcon className="h-6 w-6 text-white/40" />
             )}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-xs text-white truncate">
-              {displayName}
-            </span>
+            <span className="text-xs text-white truncate">{displayName}</span>
             {hasData && row.user_address && (
               <span className="text-[10px] text-white/40 truncate">
                 {prettyTruncate(row.user_address, 6, 'mid')}
@@ -208,4 +204,3 @@ const LeaderboardTableRow: React.FC<LeaderboardTableRowProps> = ({ row, loading 
     </tr>
   );
 };
-

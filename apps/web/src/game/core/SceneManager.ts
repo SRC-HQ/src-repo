@@ -47,10 +47,16 @@ export class SceneManager {
       const oldContainer = this.currentScene.container;
       this.currentScene.destroy();
       try {
-        if (oldContainer && !oldContainer.destroyed && oldContainer.parent === this.sceneContainer) {
+        if (
+          oldContainer &&
+          !oldContainer.destroyed &&
+          oldContainer.parent === this.sceneContainer
+        ) {
           this.sceneContainer.removeChild(oldContainer);
         }
-      } catch (_) { /* already removed */ }
+      } catch {
+        /* already removed */
+      }
       this.currentScene = null;
     }
 

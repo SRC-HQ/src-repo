@@ -16,7 +16,6 @@ export const LeftSidebar = () => {
   const { publicKey, connected } = useWallet();
   const { placeBet, loading, babyKingTotal } = useRaceContract();
   const { balance, refetch: refetchBalance } = useWalletBalance();
-  const mode = useGameStore((state) => state.mode);
   const apiPhase = useGameStore((state) => state.apiPhase);
   const apiPhaseStartedAt = useGameStore((state) => state.apiPhaseStartedAt);
   const apiPhaseEndsAt = useGameStore((state) => state.apiPhaseEndsAt);
@@ -25,12 +24,12 @@ export const LeftSidebar = () => {
   const hasApiState = apiPhaseEndsAt > 0;
 
   const [timeLeft, setTimeLeft] = useState<string>('00:00');
-  const [betMode, setBetMode] = useState<'manual' | 'auto'>('manual');
+  const [betMode] = useState<'manual' | 'auto'>('manual');
   const [selectedRacers, setSelectedRacers] = useState<number[]>([]);
   const [userTotalBet, setUserTotalBet] = useState<string>('0');
 
-  // Auto mode states
-  const [autoMatches, setAutoMatches] = useState<number>(0);
+  // Auto mode states (currently disabled)
+  const [autoMatches] = useState<number>(0);
   const [betAmount, setBetAmount] = useState<number>(0);
 
   // Fetch user bet summary only on initial load (when round/wallet available) and after placing bet
@@ -84,8 +83,8 @@ export const LeftSidebar = () => {
       setBetAmount(0);
       fetchUserBet();
       refetchBalance?.();
-    } catch (err: any) {
-      setTxResult({ type: 'error', message: err?.message ?? 'Transaction failed' });
+    } catch (err: unknown) {
+      setTxResult({ type: 'error', message: (err as Error)?.message ?? 'Transaction failed' });
     }
   }, [canPlaceBet, placeBet, apiRoundId, selectedRacers, betAmount, fetchUserBet, refetchBalance]);
 
@@ -103,7 +102,6 @@ export const LeftSidebar = () => {
     const updateTimer = () => {
       if (hasApiState) {
         // Clock-drift safe: duration from server pair, elapsed from local receive
-        const duration = apiPhaseEndsAt - apiPhaseStartedAt;
         const serverNow = apiPhaseStartedAt + (Date.now() - apiPhaseStartedAt);
         const remainingMs = Math.max(0, apiPhaseEndsAt - serverNow);
         const totalSeconds = Math.floor(remainingMs / 1000);
@@ -242,13 +240,13 @@ export const LeftSidebar = () => {
             {/* Tabs */}
             <div className="flex bg-black/20 rounded-lg p-1 mb-4 relative z-10">
               <button
-                onClick={() => setBetMode('manual')}
+                disabled
                 className={`flex-1 py-1.5 text-sm font-sans rounded-md transition-all duration-300 ${betMode === 'manual' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
               >
                 Manual
               </button>
               <button
-                onClick={() => setBetMode('auto')}
+                disabled
                 className={`flex-1 py-1.5 text-sm font-sans rounded-md transition-all duration-300 ${betMode === 'auto' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
               >
                 Auto
@@ -340,7 +338,7 @@ export const LeftSidebar = () => {
                   <input
                     type="number"
                     value={autoMatches || ''}
-                    onChange={(e) => setAutoMatches(Number(e.target.value))}
+                    onChange={() => {}}
                     disabled={!connected}
                     className="bg-transparent text-right text-2xl font-bold w-32 focus:outline-none font-sans text-white/90 placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="0"

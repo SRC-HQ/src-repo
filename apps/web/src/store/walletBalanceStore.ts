@@ -12,7 +12,7 @@ interface WalletBalanceStore {
   refetch: (connection: Connection, publicKey: PublicKey) => Promise<void>;
 }
 
-export const useWalletBalanceStore = create<WalletBalanceStore>((set, get) => ({
+export const useWalletBalanceStore = create<WalletBalanceStore>((set) => ({
   balance: null,
   setBalance: (balance) => set({ balance }),
 

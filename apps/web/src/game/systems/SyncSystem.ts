@@ -2,7 +2,6 @@ import { Container } from 'pixi.js';
 import { useGameStore } from '../../store/gameStore';
 import { Racer } from '../entities/Racer';
 import { RacerState } from '../types/GameState';
-import { GAME_HEIGHT, RACER_COLORS } from '../constants';
 
 export class SyncSystem {
   private container: Container;
@@ -41,10 +40,7 @@ export class SyncSystem {
     const laneHeight = 50;
     const startY = 100;
 
-    // Assign color based on count/index
-    const color = RACER_COLORS[count % RACER_COLORS.length];
-
-    const racer = new Racer(state.id, state, color);
+    const racer = new Racer(state.id, state);
 
     // Try to derive a stable index/lane from ID or just append
     // For now append

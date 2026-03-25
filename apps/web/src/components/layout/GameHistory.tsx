@@ -88,7 +88,7 @@ export const GameHistory = () => {
         const rows = winners.map(mapWinnerToHistoryRow);
         setHistory(rows);
         setHasMore(rows.length > 0);
-      } catch (e) {
+      } catch {
         if (!cancelled) {
           setError('Failed to load history');
           setHistory([]);

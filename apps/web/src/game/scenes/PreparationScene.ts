@@ -1,11 +1,11 @@
-import { Container, Graphics, Text, Sprite } from 'pixi.js';
-import { Scene } from '../core/Scene';
+import { Container, Text, Graphics } from "pixi.js";
+import { Scene } from "../core/Scene";
+import { RACER_COUNT } from "../constants/vanillaAssets";
 
-const RACER_COUNT = 10;
+const START_X = 100;
+const FINISH_X = 700;
+const START_Y = 100;
 const LANE_HEIGHT = 50;
-const START_Y = 80;
-const START_X = 60;
-const FINISH_X = 1100;
 
 /**
  * Renders the track for the preparation phase. Racers are rendered by
@@ -17,9 +17,12 @@ export class PreparationScene implements Scene {
   constructor() {
     this.container = new Container();
 
-    const text = new Text('PREPARATION PHASE — CHOOSE YOUR SPERM', {
-      fill: 0xffffff,
-      fontSize: 20,
+    const text = new Text({
+      text: "PREPARATION PHASE — CHOOSE YOUR SPERM",
+      style: {
+        fill: 0xffffff,
+        fontSize: 20,
+      },
     });
     text.position.set(50, 20);
     this.container.addChild(text);
@@ -46,13 +49,17 @@ export class PreparationScene implements Scene {
     this.container.addChild(finishLine);
   }
 
-  update(_delta: number) {}
+  update() {
+    // No update logic needed
+  }
 
   destroy() {
     try {
       if (this.container && !this.container.destroyed) {
         this.container.destroy({ children: true });
       }
-    } catch (_) { /* already destroyed */ }
+    } catch {
+      /* already destroyed */
+    }
   }
 }

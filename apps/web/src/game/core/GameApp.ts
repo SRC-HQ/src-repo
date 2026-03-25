@@ -1,7 +1,6 @@
-import { Application } from 'pixi.js';
-import { GAME_WIDTH, GAME_HEIGHT } from '../constants';
-import { SceneManager } from './SceneManager';
-import { GameLoop } from './GameLoop';
+import { Application } from "pixi.js";
+import { SceneManager } from "./SceneManager";
+import { GameLoop } from "./GameLoop";
 
 export class GameApp {
   public app: Application;
@@ -22,8 +21,9 @@ export class GameApp {
     this.isInitializing = true;
     try {
       // PixiJS v8 requires async init and has different properties than v7
-      // Casting to any to avoid TypeScript errors if v7 types are present in node_modules
-      await (this.app as any).init({
+      await (
+        this.app as Application & { init: (config: unknown) => Promise<void> }
+      ).init({
         // width: GAME_WIDTH, // Removed in favor of resizeTo
         // height: GAME_HEIGHT,
         resizeTo: element,
@@ -46,11 +46,13 @@ export class GameApp {
       this.gameLoop = new GameLoop(this.app, this.sceneManager);
 
       // In v8, canvas is available after init
-      element.appendChild((this.app as any).canvas);
+      element.appendChild(
+        (this.app as unknown as { canvas: HTMLCanvasElement }).canvas,
+      );
 
       this.gameLoop.start();
     } catch (error) {
-      console.error('GameApp init error:', error);
+      console.error("GameApp init error:", error);
     }
   }
 
@@ -75,10 +77,14 @@ export class GameApp {
       // v8 destroy signature
       // Explicit null check for app
       if (this.app) {
-        this.app.destroy(true, { children: true, texture: true, textureSource: true } as any);
+        this.app.destroy(true, {
+          children: true,
+          texture: true,
+          textureSource: true,
+        } as unknown as boolean);
       }
     } catch (e) {
-      console.warn('Error during GameApp cleanup:', e);
+      console.warn("Error during GameApp cleanup:", e);
     }
   }
 }

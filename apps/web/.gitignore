@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# turborepo
+.turbo/
+
+# build
+dist/
+target/
+
+# misc
+.env
+.env.local
