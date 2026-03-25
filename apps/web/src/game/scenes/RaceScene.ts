@@ -1,12 +1,6 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container } from 'pixi.js';
 import { Scene } from '../core/Scene';
 import { useGameStore } from '../../store/gameStore';
-
-const RACER_COUNT = 10;
-const LANE_HEIGHT = 50;
-const START_Y = 80;
-const START_X = 60;
-const FINISH_X = 1100;
 
 /**
  * Renders the race track (lanes, start/finish). Racers are rendered by
@@ -19,7 +13,7 @@ export class RaceScene implements Scene {
     this.container = new Container();
   }
 
-  update(_delta: number) {
+  update() {
     const { pendingPhaseEvent, applyPendingPhaseEvent, apiPhaseStartedAt, apiPhaseEndsAt } =
       useGameStore.getState();
 
@@ -39,7 +33,7 @@ export class RaceScene implements Scene {
       if (this.container && !this.container.destroyed) {
         this.container.destroy({ children: true });
       }
-    } catch (_) {
+    } catch {
       /* already destroyed */
     }
   }

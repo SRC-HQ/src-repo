@@ -1,4 +1,4 @@
-import { Container, Text } from 'pixi.js';
+import { Container } from 'pixi.js';
 import { Scene } from '../core/Scene';
 
 /**
@@ -12,14 +12,16 @@ export class DistributionScene implements Scene {
     this.container = new Container();
   }
 
-  update(_delta: number) {}
+  update() {
+    // No update logic needed
+  }
 
   destroy() {
     try {
       if (this.container && !this.container.destroyed) {
         this.container.destroy({ children: true });
       }
-    } catch (_) {
+    } catch {
       /* already destroyed */
     }
   }

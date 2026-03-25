@@ -139,7 +139,6 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
       if (x > 0) x -= tw;
       sprite.tilePosition.x = x;
     };
-
     /* ========== PRE-RACE: entrance animation + idle ========== */
     if (preRaceRef.current && !debugFreezeAtFinish) {
       const ENTRANCE_DURATION = 1200;
@@ -300,12 +299,10 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     sc.pin.y = 32;
 
     if (debugFreezeAtFinish && !freezeAtFinishRef.current) {
-      let leaderIndex = 0;
       let leaderTargetX = racerWorldX[0] ?? RACE.rangeX[1];
       for (let n = 1; n < RACER_COUNT; n++) {
         if (racerWorldX[n] > leaderTargetX) {
           leaderTargetX = racerWorldX[n];
-          leaderIndex = n;
         }
       }
 
@@ -342,7 +339,7 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
         const width = isLandscape ? CANVAS_W : 768;
         const height = isLandscape ? CANVAS_H : 1024;
 
-        await (app as any).init({
+        await (app as unknown as { init: (config: unknown) => Promise<void> }).init({
           width,
           height,
           backgroundColor: 0x1a1a2e,
@@ -517,7 +514,7 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
           world,
         };
 
-        el.appendChild((app as any).canvas);
+        el.appendChild((app as unknown as { canvas: HTMLCanvasElement }).canvas);
 
         // Setup responsive resize
         const resize = () => {
@@ -537,13 +534,15 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
           const scale = Math.min(scaleX, scaleY);
 
           // Apply dimensions to renderer
-          const renderer = (app as any).renderer;
+          const renderer = (
+            app as unknown as { renderer?: { resize: (w: number, h: number) => void } }
+          ).renderer;
           if (renderer) {
             renderer.resize(canvasWidth, canvasHeight);
           }
 
           // Apply CSS scaling
-          const canvas = (app as any).canvas;
+          const canvas = (app as unknown as { canvas?: HTMLCanvasElement }).canvas;
           if (canvas) {
             const scaledWidth = canvasWidth * scale;
             const scaledHeight = canvasHeight * scale;
@@ -572,9 +571,9 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
         window.addEventListener('resize', resize);
 
         setIsReady(true);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('RaceOverlayV2 init error:', err);
-        setLoadError(err?.message ?? 'Failed to load race assets');
+        setLoadError((err as Error)?.message ?? 'Failed to load race assets');
       }
     })();
 
@@ -588,9 +587,13 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
 
       if (app) {
         try {
-          const c = (app as any).canvas;
+          const c = (app as unknown as { canvas?: HTMLCanvasElement }).canvas;
           if (c?.parentNode) c.parentNode.removeChild(c);
-          app.destroy(true, { children: true, texture: true, textureSource: true } as any);
+          app.destroy(true, {
+            children: true,
+            texture: true,
+            textureSource: true,
+          } as unknown as boolean);
         } catch (e) {
           console.warn('RaceOverlayV2 cleanup:', e);
         }

@@ -31,7 +31,7 @@ export class GameApp {
       const height = isLandscape ? GAME_HEIGHT : PORTRAIT_HEIGHT;
 
       // PixiJS v8 requires async init
-      await (this.app as any).init({
+      await (this.app as unknown as { init: (config: unknown) => Promise<void> }).init({
         width,
         height,
         backgroundColor: 0x5b5880,
@@ -53,7 +53,7 @@ export class GameApp {
       this.gameLoop = new GameLoop(this.app, this.sceneManager);
 
       // In v8, canvas is available after init
-      element.appendChild((this.app as any).canvas);
+      element.appendChild((this.app as unknown as { canvas: HTMLCanvasElement }).canvas);
 
       // Setup responsive resize
       this.setupResize();
@@ -84,13 +84,15 @@ export class GameApp {
       const scale = Math.min(scaleX, scaleY);
 
       // Apply dimensions to renderer
-      const renderer = (this.app as any).renderer;
+      const renderer = (
+        this.app as unknown as { renderer?: { resize: (w: number, h: number) => void } }
+      ).renderer;
       if (renderer) {
         renderer.resize(canvasWidth, canvasHeight);
       }
 
       // Apply CSS scaling
-      const canvas = (this.app as any).canvas;
+      const canvas = (this.app as unknown as { canvas?: HTMLCanvasElement }).canvas;
       if (canvas) {
         const scaledWidth = canvasWidth * scale;
         const scaledHeight = canvasHeight * scale;
@@ -146,7 +148,11 @@ export class GameApp {
       // v8 destroy signature
       // Explicit null check for app
       if (this.app) {
-        this.app.destroy(true, { children: true, texture: true, textureSource: true } as any);
+        this.app.destroy(true, {
+          children: true,
+          texture: true,
+          textureSource: true,
+        } as unknown as boolean);
       }
 
       this.element = null;

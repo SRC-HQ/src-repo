@@ -34,6 +34,7 @@ export const PreparationOverlayV2: React.FC = () => {
 
       {/* content */}
       <div className="relative flex flex-col items-center gap-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={LOGO_SRC}
           alt="Logo"

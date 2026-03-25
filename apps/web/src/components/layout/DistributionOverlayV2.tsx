@@ -2,13 +2,7 @@
 
 import React from 'react';
 import { useGameStore } from '../../store/gameStore';
-import {
-  RACER_SETTINGS,
-  RACER_COUNT,
-  FRAME_W,
-  FRAME_H,
-  FRAME_COUNT,
-} from '../../game/constants/vanillaAssets';
+import { RACER_SETTINGS, RACER_COUNT, FRAME_COUNT } from '../../game/constants/vanillaAssets';
 
 const BG_SRC = '/game/assets/background.png';
 
@@ -108,6 +102,7 @@ export const DistributionOverlayV2: React.FC = () => {
                     {ORDINALS[rank]}
                   </span>
 
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={racer.icon}
                     alt={racer.name}
@@ -146,6 +141,7 @@ export const DistributionOverlayV2: React.FC = () => {
 
           {/* winner name with icon */}
           <div className="flex items-center gap-2 mb-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={winnerRacer.icon}
               alt={winnerRacer.name}
