@@ -57,12 +57,6 @@ const CopyIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const SpermIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M12 2C7.58 2 4 4.5 4 7.5C4 9.5 5.5 11.5 8 12.5C6 15 4 19 4 22H6C6 18 8 15 12 15C16.42 15 20 12.5 20 9.5C20 6.5 16.42 2 12 2ZM12 13C10 13 8.5 11.5 8 10C9 10 10 9 10 7.5C10 6.5 11 6 12 6C14 6 15 7.5 15 9.5C15 11.5 13.5 13 12 13Z" />
-  </svg>
-);
-
 const CheckIcon = ({ className }: { className?: string }) => (
   <svg
     viewBox="0 0 24 24"
@@ -80,7 +74,6 @@ const CheckIcon = ({ className }: { className?: string }) => (
 const ProfileHoverCard = ({
   name,
   address,
-  avatarColor,
   position,
   isVisible,
   onMouseEnter,
@@ -170,6 +163,7 @@ const ProfileHoverCard = ({
           className={`w-12 h-12 rounded-full flex-shrink-0 border-2 border-white/10 overflow-hidden flex items-center justify-center`}
         >
           {userDetail?.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={userDetail.image} alt={displayName} className="w-full h-full object-cover" />
           ) : (
             <AvatarDefaultIcon className="w-12 h-12 object-cover" />
@@ -216,7 +210,6 @@ const ProfileHoverCard = ({
 
 const ChatBubble = ({
   name,
-  userAddress,
   message,
   time,
   avatarColor = 'bg-gray-600',
@@ -241,6 +234,7 @@ const ChatBubble = ({
         onMouseLeave={onAvatarLeave}
       >
         {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
         ) : (
           <AvatarDefaultIcon className="w-8 h-8 object-cover" />
@@ -285,12 +279,7 @@ export const RightSidebar = () => {
   const hoverTimeoutRef = useRef<NodeJS.Timeout>();
   const unmountTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const handleProfileEnter = (
-    e: React.MouseEvent,
-    name: string,
-    address: string,
-    avatarColor: string,
-  ) => {
+  const handleProfileEnter = (e: React.MouseEvent, name: string, address: string) => {
     // Clear any pending timeouts
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     if (unmountTimeoutRef.current) clearTimeout(unmountTimeoutRef.current);
@@ -320,7 +309,7 @@ export const RightSidebar = () => {
     setHoveredProfile({
       name,
       address,
-      avatarColor,
+      avatarColor: getAvatarColor(address),
       position,
     });
     // Small delay to ensure render happens before transition
@@ -492,12 +481,7 @@ export const RightSidebar = () => {
                 avatarColor={getAvatarColor(msg.user_address)}
                 avatarUrl={avatarMap[msg.user_address]}
                 onAvatarEnter={(e) =>
-                  handleProfileEnter(
-                    e,
-                    prettyTruncate(msg.user_address, 4, 4),
-                    msg.user_address,
-                    getAvatarColor(msg.user_address),
-                  )
+                  handleProfileEnter(e, prettyTruncate(msg.user_address, 4, 4), msg.user_address)
                 }
                 onAvatarLeave={handleProfileLeave}
               />

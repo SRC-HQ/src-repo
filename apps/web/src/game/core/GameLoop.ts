@@ -11,12 +11,10 @@ export class GameLoop {
   }
 
   start() {
-    // @ts-ignore - PixiJS v8 ticker add signature
     this.app.ticker?.add(this.update, this);
   }
 
   stop() {
-    // @ts-ignore - PixiJS v8 ticker remove signature
     this.app.ticker?.remove(this.update, this);
   }
 

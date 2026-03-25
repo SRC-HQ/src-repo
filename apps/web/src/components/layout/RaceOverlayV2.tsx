@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   Application,
   Assets,
@@ -10,9 +10,9 @@ import {
   AnimatedSprite,
   Texture,
   Rectangle,
-} from 'pixi.js';
-import { useGameStore } from '../../store/gameStore';
-import { progressAtT, MAX_BASE_SPEED } from '../../game/utils/raceProgress';
+} from "pixi.js";
+import { useGameStore } from "../../store/gameStore";
+import { progressAtT, MAX_BASE_SPEED } from "../../game/utils/raceProgress";
 import {
   RACER_COUNT,
   FIELD_SETTINGS,
@@ -26,7 +26,7 @@ import {
   RACER_REG_X,
   RACER_REG_Y,
   RACE,
-} from '../../game/constants/vanillaAssets';
+} from "../../game/constants/vanillaAssets";
 
 const FALLBACK_DURATION_MS = 30_000;
 
@@ -68,7 +68,9 @@ interface RaceOverlayV2Props {
   preRace?: boolean;
 }
 
-export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false }) => {
+export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({
+  preRace = false,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const mountTimeRef = useRef(Date.now());
@@ -83,15 +85,21 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
 
   const dur = apiPhaseEndsAt - apiPhaseStartedAt;
   const hasValid = dur > 0;
-  const effStart = hasValid ? apiPhaseReceivedAt || apiPhaseStartedAt : mountTimeRef.current;
+  const effStart = hasValid
+    ? apiPhaseReceivedAt || apiPhaseStartedAt
+    : mountTimeRef.current;
   const effDuration = hasValid ? dur : FALLBACK_DURATION_MS;
   const hasParams = !!(raceParams && raceParams.length >= RACER_COUNT);
 
-  const fieldIndex = Math.floor((apiPhaseStartedAt || Date.now()) / 10000) % FIELD_SETTINGS.length;
+  const fieldIndex =
+    Math.floor((apiPhaseStartedAt || Date.now()) / 10000) %
+    FIELD_SETTINGS.length;
   const field = FIELD_SETTINGS[fieldIndex];
 
   const sceneRef = useRef<SceneRefs | null>(null);
-  const debugFreezeAtFinish = useGameStore((s) => s.debugFreezeAtFinish ?? false);
+  const debugFreezeAtFinish = useGameStore(
+    (s) => s.debugFreezeAtFinish ?? false,
+  );
   const freezeAtFinishRef = useRef(false);
 
   const preRaceRef = useRef(preRace);
@@ -105,7 +113,11 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     for (let i = 0; i < RACER_COUNT; i++) {
       j.push({
         phases: [Math.random() * TAU, Math.random() * TAU, Math.random() * TAU],
-        freqs: [1.5 + Math.random() * 1.5, 3 + Math.random() * 3, 0.6 + Math.random() * 1],
+        freqs: [
+          1.5 + Math.random() * 1.5,
+          3 + Math.random() * 3,
+          0.6 + Math.random() * 1,
+        ],
         amp: 0.04 + Math.random() * 0.05,
       });
     }
@@ -132,8 +144,11 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     const deltaS = deltaMs / 1000;
 
     /* ---------- cover-fill: scale world to fully cover the renderer ---------- */
-    const rw = Math.max(1, (app as any).renderer?.width ?? CANVAS_W);
-    const rh = Math.max(1, (app as any).renderer?.height ?? CANVAS_H);
+    const renderer = (
+      app as Application & { renderer?: { width?: number; height?: number } }
+    ).renderer;
+    const rw = Math.max(1, renderer?.width ?? CANVAS_W);
+    const rh = Math.max(1, renderer?.height ?? CANVAS_H);
     const scale = Math.max(rw / CANVAS_W, rh / CANVAS_H);
     sc.world.scale.set(scale);
     sc.world.x = Math.round((rw - CANVAS_W * scale) / 2);
@@ -147,7 +162,6 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
       if (x > 0) x -= tw;
       sprite.tilePosition.x = x;
     };
-
     /* ========== PRE-RACE: entrance animation + idle ========== */
     if (preRaceRef.current && !debugFreezeAtFinish) {
       const ENTRANCE_DURATION = 1200;
@@ -180,7 +194,8 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     /* ---------- time progress from socket ---------- */
     let elapsed = now - effStart;
     if (elapsed < 0) elapsed = Math.max(0, now - mountTimeRef.current);
-    const baseT = effDuration > 0 ? Math.min(1, Math.max(0, elapsed) / effDuration) : 0;
+    const baseT =
+      effDuration > 0 ? Math.min(1, Math.max(0, elapsed) / effDuration) : 0;
     const t = debugFreezeAtFinish ? 1 : baseT;
     const raceProgress = t * 100;
 
@@ -195,7 +210,9 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     }
 
     /* ---------- time remaining (ms) for time-based cutoffs ---------- */
-    const remainingMs = debugFreezeAtFinish ? 0 : Math.max(0, effDuration - elapsed);
+    const remainingMs = debugFreezeAtFinish
+      ? 0
+      : Math.max(0, effDuration - elapsed);
 
     /* ---------- client-side jitter: organic speed variation ---------- */
     const JITTER_FULL_AT = 8000;
@@ -308,12 +325,10 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     sc.pin.y = 32;
 
     if (debugFreezeAtFinish && !freezeAtFinishRef.current) {
-      let leaderIndex = 0;
       let leaderTargetX = racerWorldX[0] ?? RACE.rangeX[1];
       for (let n = 1; n < RACER_COUNT; n++) {
         if (racerWorldX[n] > leaderTargetX) {
           leaderTargetX = racerWorldX[n];
-          leaderIndex = n;
         }
       }
 
@@ -339,12 +354,23 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     if (!el) return;
     let app: Application | null = null;
     let destroyed = false;
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeHandler: (() => void) | null = null;
 
     (async () => {
       try {
         app = new Application();
-        await (app as any).init({
-          resizeTo: el,
+
+        // Determine initial dimensions based on viewport
+        const isLandscape = window.innerWidth > window.innerHeight;
+        const width = isLandscape ? CANVAS_W : 768;
+        const height = isLandscape ? CANVAS_H : 1024;
+
+        await (
+          app as unknown as { init: (config: unknown) => Promise<void> }
+        ).init({
+          width,
+          height,
           backgroundColor: 0x1a1a2e,
           resolution: window.devicePixelRatio || 1,
           autoDensity: true,
@@ -373,8 +399,8 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
           Assets.load(field.endline),
           Assets.load(field.end),
           Assets.load(field.shadow),
-          Assets.load('/game/assets/item_race_score.png'),
-          Assets.load('/game/assets/item_race_pin.png'),
+          Assets.load("/game/assets/item_race_score.png"),
+          Assets.load("/game/assets/item_race_pin.png"),
         ]);
         const iconTextures: Texture[] = await Promise.all(
           RACER_SETTINGS.map((r) => Assets.load(r.icon)),
@@ -382,7 +408,13 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
         if (destroyed) return;
 
         /* ---------- parallax layers ---------- */
-        const mkTile = (tex: Texture, y: number, h: number, sX?: number, sY?: number) => {
+        const mkTile = (
+          tex: Texture,
+          y: number,
+          h: number,
+          sX?: number,
+          sY?: number,
+        ) => {
           const ts = new TilingSprite({
             texture: tex,
             width: TILE_W,
@@ -399,7 +431,13 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
         world.addChild(sky);
 
         const billboardH = 300;
-        const billboard = mkTile(billboardTex, RACE.billboardY, billboardH, 0.75, 0.5);
+        const billboard = mkTile(
+          billboardTex,
+          RACE.billboardY,
+          billboardH,
+          0.75,
+          0.5,
+        );
         world.addChild(billboard);
 
         let ground: TilingSprite | null = null;
@@ -515,29 +553,113 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
           world,
         };
 
-        el.appendChild((app as any).canvas);
+        el.appendChild(
+          (app as unknown as { canvas: HTMLCanvasElement }).canvas,
+        );
+
+        // Setup responsive resize
+        resizeHandler = () => {
+          if (!el || destroyed || !app) return;
+
+          const containerWidth = el.clientWidth;
+          const containerHeight = el.clientHeight;
+          const isLandscape = containerWidth > containerHeight;
+
+          // Set canvas dimensions based on orientation
+          const canvasWidth = isLandscape ? CANVAS_W : 768;
+          const canvasHeight = isLandscape ? CANVAS_H : 1024;
+
+          // Calculate scale to fit container while maintaining aspect ratio
+          const scaleX = containerWidth / canvasWidth;
+          const scaleY = containerHeight / canvasHeight;
+          const scale = Math.min(scaleX, scaleY);
+
+          // Apply dimensions to renderer
+          const renderer = (
+            app as unknown as {
+              renderer?: { resize: (w: number, h: number) => void };
+            }
+          ).renderer;
+          if (renderer) {
+            renderer.resize(canvasWidth, canvasHeight);
+          }
+
+          // Apply CSS scaling
+          const canvas = (app as unknown as { canvas?: HTMLCanvasElement })
+            .canvas;
+          if (canvas) {
+            const scaledWidth = canvasWidth * scale;
+            const scaledHeight = canvasHeight * scale;
+
+            canvas.style.width = `${scaledWidth}px`;
+            canvas.style.height = `${scaledHeight}px`;
+
+            // Center the canvas
+            const offsetX = (containerWidth - scaledWidth) / 2;
+            const offsetY = (containerHeight - scaledHeight) / 2;
+
+            canvas.style.position = "absolute";
+            canvas.style.left = `${offsetX}px`;
+            canvas.style.top = `${offsetY}px`;
+          }
+        };
+
+        // Initial resize
+        resizeHandler();
+
+        // Watch for container size changes
+        resizeObserver = new ResizeObserver(resizeHandler);
+        resizeObserver.observe(el);
+
+        // Also listen to window resize for orientation changes
+        window.addEventListener("resize", resizeHandler);
+
         setIsReady(true);
-      } catch (err: any) {
-        console.error('RaceOverlayV2 init error:', err);
-        setLoadError(err?.message ?? 'Failed to load race assets');
+      } catch (err: unknown) {
+        console.error("RaceOverlayV2 init error:", err);
+        setLoadError((err as Error)?.message ?? "Failed to load race assets");
       }
     })();
 
     return () => {
       destroyed = true;
+
+      // Cleanup resize observer
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
+
+      // Cleanup window resize listener
+      if (resizeHandler) {
+        window.removeEventListener("resize", resizeHandler);
+        resizeHandler = null;
+      }
+
       if (app) {
         try {
-          const c = (app as any).canvas;
+          const c = (app as unknown as { canvas?: HTMLCanvasElement }).canvas;
           if (c?.parentNode) c.parentNode.removeChild(c);
-          app.destroy(true, { children: true, texture: true, textureSource: true } as any);
+          app.destroy(true, {
+            children: true,
+            texture: true,
+            textureSource: true,
+          } as unknown as boolean);
         } catch (e) {
-          console.warn('RaceOverlayV2 cleanup:', e);
+          console.warn("RaceOverlayV2 cleanup:", e);
         }
         appRef.current = null;
         sceneRef.current = null;
       }
     };
-  }, [field.sky, field.billboard, field.race, field.endline, field.end, field.shadow]);
+  }, [
+    field.sky,
+    field.billboard,
+    field.race,
+    field.endline,
+    field.end,
+    field.shadow,
+  ]);
 
   /* ====================== animation loop ====================== */
   useEffect(() => {
@@ -559,5 +681,7 @@ export const RaceOverlayV2: React.FC<RaceOverlayV2Props> = ({ preRace = false })
     );
   }
 
-  return <div ref={containerRef} className="absolute inset-0 w-full h-full z-[10]" />;
+  return (
+    <div ref={containerRef} className="absolute inset-0 w-full h-full z-[10]" />
+  );
 };
